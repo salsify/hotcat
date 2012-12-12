@@ -20,6 +20,10 @@ require 'hotcat/icecat'
 class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
   attr_reader :categories
 
+  # Stores the ICEcat server filename for the category document.
+  class << self; attr_reader :filename; end
+  @filename = "CategoriesList.xml"
+
   def initialize
     @categories = {}
     init_values

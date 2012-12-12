@@ -16,67 +16,83 @@ require 'hotcat/icecat_category_document'
 
 namespace :hotcat do
 
-  task :setup => [:environment] do
-    config = Hotcat::Configuration
-    puts "domain: #{config.icecat_domain}"
+  # subdirectories in the local cache for various pieces of the ICEcat data
+  REFS_DIR = "refs#{File::SEPARATOR}"
+  PRODUCTS_DIRECTORY = "product_cache#{File::SEPARATOR}"
 
-    # FIXME: here
-    # hotcat.builder = Requirejs::Rails::Builder.new(hotcat.config)
+
+  # ICEcat category ID for cameras
+  CAMERA_CATEGORY_ICECAT_ID = "571"
+
+
+  # Ensures that all required configuration has been set.
+  task :setup => [:environment] do
+    @config = Hotcat::Configuration
   end
 
 
-  ICECAT_USERNAME = ENV['ICECAT_USERNAME']
-  ICECAT_PASSWORD = ENV['ICECAT_PASSWORD']
-  ICECAT_DOMAIN = "data.icecat.biz"
+  # FIXME: move these to a constants file somewhere
+  DAILY_FILE = "daily.index.xml"
+  FULL_FILE = "files.index.xml"
+  
 
-  # I downloaded the first 370 products in 2012-09-05
-  ICECAT_MAX = 371
+  # return whether successful
+  def download_to_local(uri, filename, retry_download = true, auth_required = true, indent = '')
+    puts "#{indent}Downloading from <#{uri.to_s}>"
+    http = Net::HTTP.new(uri.host, uri.port)
+    req = Net::HTTP::Get.new(uri.request_uri)
+    req.basic_auth(@config.username, @config.password) if auth_required
+    response = http.request(req)
+    if response.code == "200" then
+      puts "#{indent}Download successful. saving to <#{filename}>"
+      open(filename, "wb") { |file| file.write(response.body) }
+      true
+    else
+      puts "#{indent}  ERROR: HTTP RESPONSE #{response.code}"
+      if retry_download then
+        puts "#{indent}  Retrying..."
+        return download_to_local(uri, filename, false, auth_required, indent)
+      end
+      false
+    end
+  end
 
-  # The number of products whose related produts we should load
-  ICECAT_RELATED_MAX = 200
+  # task :test_download => [:environment] do
+  #   uri = URI("http://data.icecat.biz/xml_s3/xml_server3.cgi?prod_id=PX1268E-1G40;vendor=toshiba;lang=en;output=productxml")
+  #   file = "lib/assets/icecat/product_cache/http%3A%2F%2Fdata.icecat.biz%2Fxml_s3%2Fxml_server3.cgi%3Fprod_id%3DPX1268E-1G40%3Bvendor%3Dtoshiba%3Blang%3Den%3Boutput%3Dproductxml"
+  #   download_to_local(uri, file, false)
+  # end
 
-  # The number of relations to load for the first ICECAT_RELATED_MAX products
-  ICECAT_RELATED_MAX_PER_PRODUCT = 5
 
-  DIRECTORY = 'db/data/icecat'
-  DAILY_FILE = "#{DIRECTORY}/daily.index.xml"
-  FULL_FILE = "#{DIRECTORY}/files.index.xml"
-  CATEGORIES_FILE = "#{DIRECTORY}/CategoriesList.xml"
-  SUPPLIERS_FILE = "#{DIRECTORY}/SuppliersList.xml"
-  PRODUCTS_DIRECTORY = "#{DIRECTORY}/product_cache"
-  IMAGE_DIRECTORY = ENV['ICECAT_IMAGES']
-  IMAGE_URL_BASE = ENV['ICECAT_URL']
-
-  IMAGE_PROPERTIES = {
-    high: "High Resolution Picture URL Local",
-    low: "Low Resolution Picture URL Local",
-    thumb: "Thumbnail URL Local"
-  }
-
-  AWS_BUCKET = 'icecat'
-
-  CAMERA_CATEGORY_ICECAT_ID = "571"
-
+  # Local cache of supplier data that's cross-referenced in a bunch of places.
   @suppliers = {}
+
   def load_supplier_hash()
-    puts "Building Supplier hash for cross-referencing. Note that this does not update anything in the database."
+    file = "#{@config.cache_dir}#{REFS_DIR}#{Hotcat::SupplierDocument.filename}"
+    if not File.exists?(file) then
+      puts "Suppliers XML is not locally cached. Fetching."
+      uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::SupplierDocument.filename}")
+      download_to_local(uri, file, true, true, "    ")
+    end
+
+    puts "Building Supplier hash for cross-referencing."
     @suppliers = {}
-    supplier_document = SupplierDocument.new
+    supplier_document = Hotcat::SupplierDocument.new
     parser = Nokogiri::XML::SAX::Parser.new(supplier_document)
-    parser.parse(File.open(SUPPLIERS_FILE))
+    if file.end_with?("gz")
+      parser.parse(Zlib::GzipReader.open(file))
+    else
+      parser.parse(File.open(file))
+    end
     @suppliers = supplier_document.suppliers
     puts "Done loading suppliers. #{@suppliers.keys.length} loaded."
   end
 
   desc "Loads supplier list into a local hash for cross-referencing. Makes no updates to the database."
-  task :load_suppliers do
-    if not File.exists? SUPPLIERS_FILE then
-      puts "ERROR: specified suppliers file does not exist <#{SUPPLIERS_FILE}>"
-      break
-    end
-
+  task :load_suppliers  => ["hotcat:setup"] do
     load_supplier_hash
   end
+
 
   # builds a URI to the icecat file from the path property.
   # there is an alternative way using the query interface, which is covered in the next method.
@@ -115,32 +131,6 @@ namespace :hotcat do
     image_type + '_' + URI.encode_www_form_component(parent_id) + "_" + image_quality + url[-4..-1].downcase
   end
 
-  # return whether successfuls
-  def download_to_local(uri, filename, retry_download = true, auth_required = true, indent = '')
-    puts "#{indent}Downloading from <#{uri.to_s}>"
-    http = Net::HTTP.new(uri.host, uri.port)
-    req = Net::HTTP::Get.new(uri.request_uri)
-    req.basic_auth(ICECAT_USERNAME, ICECAT_PASSWORD) if auth_required
-    response = http.request(req)
-    if response.code == "200" then
-      puts "#{indent}Download successful. saving to <#{filename}>"
-      open(filename, "wb") { |file| file.write(response.body) }
-      true
-    else
-      puts "#{indent}  ERROR: HTTP RESPONSE #{response.code}"
-      if retry_download then
-        puts "#{indent}  Retrying..."
-        return download_to_local(uri, filename, false)
-      end
-      false
-    end
-  end
-
-  # task :test_download => [:environment] do
-  #   uri = URI("http://data.icecat.biz/xml_s3/xml_server3.cgi?prod_id=PX1268E-1G40;vendor=toshiba;lang=en;output=productxml")
-  #   file = "lib/assets/icecat/product_cache/http%3A%2F%2Fdata.icecat.biz%2Fxml_s3%2Fxml_server3.cgi%3Fprod_id%3DPX1268E-1G40%3Bvendor%3Dtoshiba%3Blang%3Den%3Boutput%3Dproductxml"
-  #   download_to_local(uri, file, false)
-  # end
 
   desc "Download ICEcat data about Cameras to local cache but do not commit data to DB."
   task :build_product_camera_cache => [:environment] do
@@ -175,7 +165,7 @@ namespace :hotcat do
         puts "#{total_downloaded}: Local file exists for #{prod_id}"
       else
         puts "#{total_downloaded}: Downloading data file for product #{prod_id}"
-        product_details_uri = URI("http://#{ICECAT_DOMAIN}/#{p[:path]}")
+        product_details_uri = URI("http://#{@Icecat.data_url}/#{p[:path]}")
         if download_to_local(product_details_uri, product_file_name(prod_id)) then
           total_downloaded += 1
         else

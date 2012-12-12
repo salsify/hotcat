@@ -1,8 +1,15 @@
 require 'nokogiri'
 
+require 'hotcat/icecat'
+
 # Nokogiri SAX parser for the Supplier key document from ICEcat.
-class SupplierDocument < Nokogiri::XML::SAX::Document
+#
+class Hotcat::SupplierDocument < Nokogiri::XML::SAX::Document
   attr_reader :suppliers
+
+  # Stores the ICEcat server filename for the category document.
+  class << self; attr_reader :filename; end
+  @filename = "SuppliersList.xml.gz"
 
   def initialize
     @suppliers = {}
