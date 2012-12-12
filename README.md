@@ -4,17 +4,13 @@ Hotcat is a library for accessing and transforming ICEcat data into Salsify's re
 
 ## Installation
 
-Add this line to your application's Gemfile:
+Add this line to your Gemfile (probably for development only):
 
-    gem 'hotcat'
+    gem 'hotcat', :git => 'git@github.com:socialceramics/hotcat.git'
 
 And then execute:
 
     $ bundle
-
-Or install it yourself as:
-
-    $ gem install hotcat
 
 ## Usage
 

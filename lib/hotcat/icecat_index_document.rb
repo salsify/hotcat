@@ -15,7 +15,7 @@ require 'nokogiri'
 # Note that there is data in the files that is being ignored here. We are only
 # interested in the product IDs necessary to fetch the more detailed documents
 # for each individual product.
-class IcecatIndexDocument < Nokogiri::XML::SAX::Document
+class Hotcat::IndexDocument < Nokogiri::XML::SAX::Document
   attr_reader :total, # total products seen, whether or not 
               :total_valid, # total products seen in a valid category
               :products, # hash collection of products

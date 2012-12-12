@@ -17,7 +17,7 @@ require 'hotcat/icecat'
 # don't do anything with that.
 #
 # etc.
-class CategoryDocument < Nokogiri::XML::SAX::Document
+class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
   attr_reader :categories
 
   def initialize

@@ -1,18 +1,30 @@
 require 'uri'
 require 'net/http'
 require 'nokogiri'
+require 'active_support/ordered_options'
 
-require 'icecat'
-require 'icecat_index_document'
-require 'icecat_product_document'
-require 'icecat_supplier_document'
-require 'icecat_category_document'
+require 'hotcat'
+require 'hotcat/icecat'
+require 'hotcat/icecat_index_document'
+require 'hotcat/icecat_product_document'
+require 'hotcat/icecat_supplier_document'
+require 'hotcat/icecat_category_document'
 
 # TODO: task to download the daily update
 # TODO: have a task to delete the local cache
 # TODO: zip up the local XML files and figure out how to parse them with nokogiri
 
 namespace :hotcat do
+
+  task :setup => [:environment] do
+    config = Hotcat::Configuration
+    puts "domain: #{config.icecat_domain}"
+
+    # FIXME: here
+    # hotcat.builder = Requirejs::Rails::Builder.new(hotcat.config)
+  end
+
+
   ICECAT_USERNAME = ENV['ICECAT_USERNAME']
   ICECAT_PASSWORD = ENV['ICECAT_PASSWORD']
   ICECAT_DOMAIN = "data.icecat.biz"

@@ -27,6 +27,8 @@ Gem::Specification.new do |gem|
   #
   gem.add_development_dependency 'rake'
   gem.add_development_dependency 'rspec'
+  gem.add_development_dependency 'railties'
+  gem.add_development_dependency 'activesupport'
   gem.add_development_dependency 'nokogiri', '~> 1.5.5'
   gem.add_development_dependency 'ox', '~> 1.8.0'
 end
