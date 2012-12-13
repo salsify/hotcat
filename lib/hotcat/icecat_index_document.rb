@@ -3,10 +3,11 @@ require 'nokogiri'
 # Nokogiri SAX parser for ICEcat index XML files, such as full indicies or
 # daily updates.
 #
-# If a category is specified, this will skip all products not in the category or
-# in one of its decendants.
+# This will only load products for the given set of category IDs. There is no
+# intelligence in this document to deal with category hierarchy, so you should
+# send in the entire tree you want saved.
 #
-# If no category is specified, this loads all products.
+# If no category is specified, this will load all products.
 #
 # The primary return value is the index_document.products variable, which is an
 # array of hashes that each contain a product's id, category id, and path to its
@@ -22,21 +23,34 @@ class Hotcat::IndexDocument < Nokogiri::XML::SAX::Document
               :root_valid_category_id,
               :valid_category_ids
 
-  def initialize category = nil
-    @root_valid_category_id = category
-    @valid_category_ids = []
-    if @root_valid_category_id != nil then
-      # pre-loading SIGNIFICANTLY speeds up the overal load time
-      all_valid_cat_ids = Category.find_by_external_id(category).descendants
-      all_valid_cat_ids.each {|id| @valid_category_ids.push(Category.find(id).external_id) }
-    end
 
+  class << self
+    attr_reader :full_index_remote_filename,
+                :full_index_local_filename,
+                :daily_index_remote_filename,
+                :daily_index_local_filename
+  end
+
+  # Stores the ICEcat server filename for the full index document document.
+  @full_index_remote_filename = "files.index.xml"
+  @full_index_local_filename = "#{@full_index_remote_filename}.gz"
+
+  # Stores the ICEcat server filename for the daily index document document.
+  @daily_index_remote_filename = "daily.index.xml"
+  @daily_index_local_filename = "#{@daily_index_remote_filename}.gz"
+
+
+  def initialize(valid_category_ids, max_products)
+    @valid_category_ids = valid_category_ids
     @total = 0
+    @max_products = max_products
     @total_valid = 0
     @products = []
   end
 
-  def start_element name, attributes = []
+  def start_element(name, attributes = [])
+    return if !@max_products.nil? && @total_valid >= @max_products
+
     case name
     when 'file'
       @total += 1
@@ -54,7 +68,7 @@ class Hotcat::IndexDocument < Nokogiri::XML::SAX::Document
           cat_id = a[1]
         end
       end
-      if @root_valid_category_id == nil or @valid_category_ids.include? cat_id then
+      if @valid_category_ids.nil? or @valid_category_ids.include?(cat_id) then
         @total_valid += 1
         @products.push({id: id, root_valid_category_id: cat_id, path: path})
       end

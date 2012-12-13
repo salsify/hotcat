@@ -23,5 +23,11 @@ require "hotcat/config"
 require "hotcat/version"
 
 require "hotcat/icecat"
+require "hotcat/salsify_document_writer"
+
+require "hotcat/icecat_supplier_document"
 require "hotcat/icecat_category_document"
-# FIXME: require the rest of the files here
+require "hotcat/salsify_category_writer"
+require "hotcat/icecat_index_document.rb"
+require "hotcat/icecat_product_document.rb"
+require "hotcat/salsify_products_writer.rb"

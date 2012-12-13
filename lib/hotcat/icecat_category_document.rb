@@ -22,7 +22,7 @@ class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
 
   # Stores the ICEcat server filename for the category document.
   class << self; attr_reader :filename; end
-  @filename = "CategoriesList.xml"
+  @filename = "CategoriesList.xml.gz"
 
   def initialize
     @categories = {}
@@ -59,9 +59,9 @@ class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
       end
 
       if !value.nil? && !value.empty?
-        if langid == Icecat.english_language_id
+        if langid == Hotcat::Icecat.english_language_id
           @name = value
-        elsif langid == Icecat.fallback_language_id && @name.nil?
+        elsif langid == Hotcat::Icecat.fallback_language_id && @name.nil?
           # @name.nil? ensures that we're not overwriting an English name if
           # we've seen it already.
           @name = value
@@ -82,7 +82,11 @@ class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
       #
       # Strangely some categories do not have parents, so the whole thing isn't
       # very consistent.
-      @categories[@id] = { name: @name, parent_id: @parent_id } unless @id == "1"
+      if @id == "1"
+        @categories[@id] = { name: "ICEcat Product Categories", parent_id: nil }
+      else
+        @categories[@id] = { name: @name, parent_id: @parent_id }
+      end
       init_values
     end
   end
