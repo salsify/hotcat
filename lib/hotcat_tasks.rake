@@ -32,9 +32,42 @@ namespace :hotcat do
   CAMERA_CATEGORY_ICECAT_ID = "571"
 
 
+  def ensure_directory(path)
+    if !File.exist?(path)
+      return Dir.mkdir(path)
+    elsif !File.directory?(path)
+      return false
+    end
+    true
+  end
+
   # Ensures that all required configuration has been set.
   task :setup => [:environment] do
     @config = Hotcat::Configuration
+
+    dir = @config.cache_dir + REFS_DIR
+    if !ensure_directory(dir)
+      puts "ERROR: #{dir} not a directory. Quitting."
+      exit
+    end
+
+    dir = @config.cache_dir + INDEX_DIR
+    if !ensure_directory(dir)
+      puts "ERROR: #{dir} not a directory. Quitting."
+      exit
+    end
+
+    dir = @config.cache_dir + PRODUCTS_DIRECTORY
+    if !ensure_directory(dir)
+      puts "ERROR: #{dir} not a directory. Quitting."
+      exit
+    end
+
+    dir = @config.cache_dir + SALSIFY_DIR
+    if !ensure_directory(dir)
+      puts "ERROR: #{dir} not a directory. Quitting."
+      exit
+    end
   end
 
 
@@ -154,7 +187,7 @@ namespace :hotcat do
     if @categories.empty?
       puts "ERROR: no categories loaded. Something has gone wrong."
     else
-      ofile = "#SALSIFY_PREFIX#{Hotcat::CategoryDocument.filename}"
+      ofile = "#{SALSIFY_PREFIX}#{Hotcat::CategoryDocument.filename}"
       ofile << ".gz" unless ofile.end_with?(".gz")
       output_file = "#{@config.cache_dir}#{SALSIFY_DIR}#{ofile}"
       puts "Writing categories to #{output_file}"
@@ -301,17 +334,17 @@ namespace :hotcat do
   task :convert_products => ["hotcat:setup"] do
     products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
 
-    products_filename = @config.cache_dir + SALSIFY_DIR + "salsify-products.xml.gz"
+    products_filename = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products.xml.gz"
     if File.exist?(products_filename)
       puts "WARNING: products file exists. Renaming to backup before continuing."
-      newname = @config.cache_dir + SALSIFY_DIR + "salsify-products-#{Time.now.to_i}.xml.gz"
+      newname = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-#{Time.now.to_i}.xml.gz"
       File.rename(products_filename, newname)
     end
 
-    relations_filename = @config.cache_dir + SALSIFY_DIR + "salsify-relations.xml.gz"
+    relations_filename = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}relations.xml.gz"
     if File.exist?(relations_filename)
       puts "WARNING: relations file exists. Renaming to backup before continuing."
-      newname = @config.cache_dir + SALSIFY_DIR + "salsify-relations-#{Time.now.to_i}.xml.gz"
+      newname = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}relations-#{Time.now.to_i}.xml.gz"
       File.rename(relations_filename, newname)
     end
 
@@ -319,20 +352,44 @@ namespace :hotcat do
     puts "Storing products in #{products_filename}"
     puts "Storing relations (max #{@config.max_related_products} per product) in #{relations_filename}"
 
-    converter = Hotcat::SalsifyProductsWriter.new(products_directory, nil,
+    converter = Hotcat::SalsifyProductsWriter.new(products_directory,
+                                                  nil,
                                                   products_filename,
+                                                  @config.max_products,
                                                   relations_filename,
                                                   @config.max_related_products)
     converter.convert
 
-    # FIXME: complete this
-    # puts "Done writing documents. Ensuring that related product documents are loaded."
-    # converter.related_product_ids_suppliers.each_pair
+    puts "Done writing documents. Ensuring that related product documents are loaded."
+    files = []
+    converter.related_product_ids_suppliers.each_pair do |id, supplier|
+      filename = product_file_name(id)
+      unless File.exist?(filename)
+        filename = product_file_name(id)
+        uri = product_icecat_query_uri(id, supplier)
+        unless download_to_local(uri, filename, true, true, indent = '  ')
+          puts "  WARNING: could not download to local file for product #{id}"
+        end
+      end
+      files.push(filename)
+    end
 
-    # def product_icecat_query_uri(product_id, supplier_name)
+    related_products_filename = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-related.xml.gz"
+    if File.exist?(related_products_filename)
+      puts "WARNING: related products file exists. Renaming to backup before continuing."
+      newname = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-related-#{Time.now.to_i}.xml.gz"
+      File.rename(related_products_filename, newname)
+    end
+    puts "Converting the necessary related products."
+    converter = Hotcat::SalsifyProductsWriter.new(products_directory,
+                                                  files,
+                                                  related_products_filename,
+                                                  0,
+                                                  nil,
+                                                  0)
+    converter.convert
 
-
-    puts "Done converting products."
+    puts "Done converting products and related products."
   end
 
 end

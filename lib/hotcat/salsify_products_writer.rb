@@ -10,16 +10,25 @@ class Hotcat::SalsifyProductsWriter
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
 
-  def initialize(source_directory, files = nil, products_filename, relations_filename, max_related_products = 0)
+  def initialize(source_directory,
+                 files,
+                 products_filename,
+                 max_products,
+                 relations_filename,
+                 max_related_products)
+
     source_directory << File.SEPARATOR unless source_directory.ends_with?(File::SEPARATOR)
     @source_directory = source_directory
 
-    # Whitelist of files in the given directory.
+    # Whitelist of files in the given directory. Elements in the array should be
+    # complete paths to the whitelist of files.
     @files = files
 
     @products_filename = products_filename
-    @max_related_products = max_related_products
+    @max_products = max_products
+    
     @relations_filename = relations_filename
+    @max_related_products = max_related_products
 
     @related_product_ids_suppliers = {}
   end
@@ -34,12 +43,13 @@ class Hotcat::SalsifyProductsWriter
       @relations_file << "<product_relations>\n"
     end
 
+    successfully_converted = 0
     Dir.entries(@source_directory).each_with_index do |filename|
       next if filename.start_with?(".")
-      next unless @files.nil? || files.include?(filename)
-
+      file = @source_directory + filename
+      next unless @files.nil? || @files.include?(file)
       begin
-        product = load_product(@source_directory + filename)
+        product = load_product(file)
       rescue Exception => e
         # don't let a single error derail the entire project...
         puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
@@ -51,10 +61,13 @@ class Hotcat::SalsifyProductsWriter
       end
       unless product.nil? || product.keys.empty? || product[:properties].empty?
         write_product(product)
-        write_relations(product)
+        write_relations(product) unless @max_related_products == 0
+        successfully_converted += 1
       else
         puts "WARNING: could not load product from file: #{filename}"
       end
+
+      break if @max_products > 0 && successfully_converted >= @max_products
     end
 
     @products_file << "</products>\n"
@@ -102,7 +115,7 @@ class Hotcat::SalsifyProductsWriter
 
   def write_relations(product)
     relations_xml = Ox::Element.new('relations')
-    relations_xml['product_id'] = r[:properties]["id"]
+    relations_xml['product_id'] = product[:properties]["id"]
     relations_xml << build_property_xml('name', "Related Product")
 
     related_products_loaded = 0
