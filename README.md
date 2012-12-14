@@ -59,7 +59,14 @@ Running these tasks will produce 4 files in the _salsify_ subdirectory of the sp
 * salsify-products-related.xml.gz
 * salsify-relations.xml.gz
 
-They can be loaded in normally via the standard salsify data tasks.
+They can be loaded in normally via the standard salsify data tasks. For example:
+```
+  rake salsify:clean_load file=/path/to/cache/dir/salsify-CategoriesList.xml.gz
+  rake salsify:load file=/path/to/cache/dir/salsify-products.xml.gz
+  rake salsify:load file=/path/to/cache/dir/salsify-products-related.xml.gz
+  rake salsify:load file=/path/to/cache/dir/salsify-relations.xml.gz
+```
+Note that the first of these runs a *clean_load* which will reset the database. The *load* command is simply additive. If you just want to add to an existing database without resetting you can run *load* with the categories file instead of *clean_load* and everything should still work fine.
 
 #### Other Tasks
 
