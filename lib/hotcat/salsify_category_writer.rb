@@ -27,7 +27,7 @@ class Hotcat::SalsifyCategoryWriter
       cat_xml[:id] = id
       category.each_pair do |key,val|
         if key == :parent_id
-          cat_xml[key] = val unless !val.nil?
+          cat_xml[key] = val unless val.nil?
         else
           cat_xml << build_property_xml(key,val)
         end

@@ -4,6 +4,98 @@
 		"selected_items":
 		[
 			[
+				"refs",
+				"refs_dir"
+			],
+			[
+				"product_file",
+				"product_file_name"
+			],
+			[
+				"max",
+				"max_products"
+			],
+			[
+				"relations_",
+				"relations_file"
+			],
+			[
+				"cate",
+				"category_id"
+			],
+			[
+				"produ",
+				"products_file"
+			],
+			[
+				"product",
+				"product"
+			],
+			[
+				"produc",
+				"product_document"
+			],
+			[
+				"max_",
+				"max_related_products"
+			],
+			[
+				"produts_fi",
+				"products_file"
+			],
+			[
+				"relations",
+				"relations_filename"
+			],
+			[
+				"total",
+				"total_valid"
+			],
+			[
+				"categ",
+				"category"
+			],
+			[
+				"root",
+				"root_id"
+			],
+			[
+				"cache",
+				"cache_dir"
+			],
+			[
+				"load_Ca",
+				"load_categories_hash"
+			],
+			[
+				"valid",
+				"valid_category_ids"
+			],
+			[
+				"writ",
+				"write_category"
+			],
+			[
+				"out",
+				"output_filename"
+			],
+			[
+				"supp",
+				"supplier_file"
+			],
+			[
+				"down",
+				"download_to_local"
+			],
+			[
+				"ice",
+				"icecat_domain"
+			],
+			[
+				"Max",
+				"max_related_products"
+			],
+			[
 				"trigger_con",
 				"trigger_condition_set_2"
 			],
@@ -54,10 +146,6 @@
 			[
 				"per_",
 				"per_group"
-			],
-			[
-				"total",
-				"total_entries"
 			],
 			[
 				"proper",
@@ -190,10 +278,6 @@
 			[
 				"roo",
 				"root_matches"
-			],
-			[
-				"root",
-				"root_value"
 			],
 			[
 				"first",
@@ -384,10 +468,6 @@
 				"expanded_property_id"
 			],
 			[
-				"max",
-				"max_rules_per_product"
-			],
-			[
 				"rules",
 				"rules_for_product"
 			],
@@ -434,91 +514,35 @@
 			[
 				"end",
 				"end_cleaning"
-			],
-			[
-				"start_",
-				"start_cleaning"
-			],
-			[
-				"total_time",
-				"total_time_start"
-			],
-			[
-				"rule_geer",
-				"rule_generating_time_start"
-			],
-			[
-				"clean",
-				"cleaning_time"
-			],
-			[
-				"RuleFin",
-				"RuleFinderResults"
-			],
-			[
-				"trigg",
-				"trigger_or_target_to_db_column"
-			],
-			[
-				"produ",
-				"product_ids_query"
-			],
-			[
-				"product_id",
-				"product_ids_query"
-			],
-			[
-				"related",
-				"related_trigger_psets"
-			],
-			[
-				"disc_rule",
-				"discovered_rules_from_cameras"
-			],
-			[
-				"elapes",
-				"elapsed_minutes"
-			],
-			[
-				"in_",
-				"in_products"
-			],
-			[
-				"categories",
-				"categories_only"
-			],
-			[
-				"categor",
-				"categories_data"
-			],
-			[
-				"index",
-				"indexes_to_delete"
-			],
-			[
-				"produc",
-				"products_ids_in_set"
-			],
-			[
-				"trigger",
-				"trigger_ids"
-			],
-			[
-				"generate",
-				"generate_product_set"
-			],
-			[
-				"psets",
-				"psets_ids"
-			],
-			[
-				"new_",
-				"new_psets_ids"
 			]
 		]
 	},
 	"buffers":
 	[
+		{
+			"file": "README.md",
+			"settings":
+			{
+				"buffer_size": 2551,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "lib/hotcat/config.rb",
+			"settings":
+			{
+				"buffer_size": 1063,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "lib/hotcat/salsify_products_writer.rb",
+			"settings":
+			{
+				"buffer_size": 4496,
+				"line_ending": "Unix"
+			}
+		}
 	],
 	"build_system": "",
 	"command_palette":
@@ -544,6 +568,27 @@
 	},
 	"file_history":
 	[
+		"/Users/rob/Documents/hotcat/lib/hotcat_tasks.rake",
+		"/Users/rob/Documents/hotcat/lib/hotcat.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/config.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/icecat.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/salsify_document_writer.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/icecat_product_document.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/salsify_products_writer.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/salsify_category_writer.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/icecat_category_document.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/icecat_index_document.rb",
+		"/Users/rob/Documents/hotcat/lib/hotcat/icecat_supplier_document.rb",
+		"/Users/rob/Documents/hotcat/hotcat.gemspec",
+		"/Users/rob/Documents/hotcat/lib/hotcat/error.rb",
+		"/Users/rob/Documents/hotcat/spec/lib/config_spec.rb",
+		"/Users/rob/Documents/hotcat/spec/lib/icecat_category_document_spec.rb",
+		"/Users/rob/Documents/hotcat/LICENSE.txt",
+		"/Users/rob/Documents/hotcat/lib/hotcat/hotcat_tasks.rake",
+		"/Users/rob/Documents/hotcat/Rakefile",
+		"/Users/rob/Documents/hotcat/spec/spec_helper.rb",
+		"/Users/rob/Documents/hotcat/README.md",
+		"/Users/rob/Documents/hotcat/Gemfile",
 		"/Users/rob/Documents/dandelion/app/assets/javascripts/application.js",
 		"/Users/rob/Documents/dandelion/config/application.rb",
 		"/Users/rob/Documents/dandelion/app/models/condition.rb",
@@ -650,28 +695,7 @@
 		"/Users/rob/Documents/dandelion/app/assets/javascripts/views/productRelationsView.js",
 		"/Users/rob/Documents/dandelion/app/assets/javascripts/views/relationViews.js",
 		"/Users/rob/Documents/dandelion/app/views/refinements/base.json.rabl",
-		"/Users/rob/Documents/dandelion/app/views/product_sets/index.json.rabl",
-		"/Users/rob/Documents/dandelion/app/views/refinements/show.json.rabl",
-		"/Users/rob/Documents/dandelion/app/views/product_sets/base.json.rabl",
-		"/Users/rob/Documents/dandelion/app/views/product_sets/show.json.rabl",
-		"/Users/rob/Documents/dandelion/app/views/relations/show.json.rabl",
-		"/Users/rob/Documents/dandelion/app/assets/templates/ruleTemplates.html",
-		"/Users/rob/Documents/dandelion/config/environments/development.rb",
-		"/Users/rob/Documents/dandelion/log/development.log",
-		"/Users/rob/Documents/dandelion/spec/models/relation_rule_association_spec.rb",
-		"/Users/rob/Documents/dandelion/spec/factories/rules.rb",
-		"/Users/rob/Documents/dandelion/db/structure.sql",
-		"/Users/rob/Documents/dandelion/db/migrate/20121024203532_add_status_to_rules.rb",
-		"/Users/rob/Documents/dandelion/spec/spec_helper.rb",
-		"/Users/rob/Documents/dandelion/spec/support/database_cleaner.rb",
-		"/Users/rob/Documents/dandelion/spec/factories/product_sets.rb",
-		"/Users/rob/Documents/dandelion/spec/factories/conditions.rb",
-		"/Users/rob/Documents/dandelion/lib/tasks/icecat_demo_data.rake",
-		"/Users/rob/Documents/dandelion/spec/javascripts/spec/productViews.js",
-		"/Users/rob/Documents/dandelion/lib/icecat_product_document.rb",
-		"/Users/rob/Documents/dandelion/lib/bandh_categories_xml.rb",
-		"/Users/rob/Documents/dandelion/out",
-		"/Users/rob/Documents/dandelion/lib/data_parser.rb"
+		"/Users/rob/Documents/dandelion/app/views/product_sets/index.json.rabl"
 	],
 	"find":
 	{
@@ -689,6 +713,77 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"salsify-",
+			"SALSIFY_PREFIX",
+			"refs_dir",
+			"idx_dir",
+			"refs_dir",
+			"products_filename",
+			"download_to_local",
+			"successfully_loaded",
+			"@files",
+			"loaded",
+			">",
+			"create_property_value",
+			"then",
+			"category_property_name",
+			"related_product_ids_suppliers",
+			"property_values",
+			"properties_db",
+			"@product",
+			"convert_product",
+			"products_file",
+			"file",
+			"load_product",
+			"products_file",
+			"relations_file",
+			"products_file",
+			"products",
+			"products_file",
+			"== 1",
+			"and_desc",
+			"category[:parent_id]",
+			"CAMERA_CATEGORY_ICECAT_ID",
+			"@categories",
+			"index_base_url",
+			"name, attributes = []",
+			"product_id_from_filename",
+			"image_name",
+			"product_file_name",
+			"product_id_from_filename",
+			"product_icecat_query_uri",
+			"product_icecat_path_uri",
+			"@output_file",
+			"output_file",
+			"output_filename",
+			"File.SEPARATOR",
+			"SEPARATOR",
+			"config",
+			"Constants",
+			"SEPARATOR",
+			"PATH_SEPARATOR",
+			"Separator",
+			"separator",
+			"SEPARATOR",
+			"reference_files_url",
+			"category_file",
+			"ICECAT_USERNAME",
+			"warn",
+			"icecat_domain",
+			"max_products",
+			"cache_dir",
+			"should",
+			"requirejs",
+			"config",
+			"cfg",
+			"requirejs",
+			"s.",
+			"ENGLISH",
+			"and",
+			"fallback",
+			"notcat",
+			"puts",
+			"s.",
 			"trigger_overlap",
 			"rule4",
 			"_4",
@@ -745,78 +840,7 @@
 			"generate_set_relations_from_condition_sets",
 			"generate_set_relations_from_product_sets",
 			"pset",
-			"generate_related_product_sets",
-			"generate_related_condition_sets",
-			"generate_related_product_sets",
-			"relation_labels_for_pro",
-			"pset",
-			"generate_related",
-			"product_set_for_set_property_intersection",
-			"pset",
-			"product_set_products_for_relation",
-			"source_pset",
-			"labels_leaving_pset",
-			"pset",
-			"lens1_pset",
-			"cam1_cset",
-			"cam1_pset",
-			"relation_labels_for_product_set",
-			"pset",
-			"product_set_from_inter",
-			"generate_product_set",
-			"generate_condition_set",
-			"generate_product_set",
-			"generate_condition_set",
-			"pset",
-			"generate_singleton",
-			"products_ids_in_set",
-			"pset",
-			"generate_related_product_sets",
-			"root status item",
-			"root_property",
-			"root_status",
-			"root items",
-			"Status",
-			"Rule Status",
-			"rule_status_property_name",
-			"rule_status_property_id",
-			"rule_status_property_name",
-			"rule_status_property_id",
-			"status",
-			"rule_statuses",
-			"Product.external_id_property",
-			"Product.",
-			"Product.name_property",
-			"second",
-			"first",
-			"second",
-			"first",
-			"PropertyValue",
-			"@start_time",
-			"property_values",
-			"flag_product_sets_when_changed",
-			"flag_product_sets_private",
-			"flag_product_sets",
-			"@start_time",
-			"ProductSet",
-			"@property_values_db",
-			"finish",
-			"@property_values_db",
-			"@property_values",
-			"NewSKU-",
-			"12345",
-			"load_category",
-			"load_property",
-			"\"5\"",
-			"color",
-			"Proudct",
-			"Sample Product",
-			"property_value_assignment",
-			"external_id_property",
-			"empty",
-			"brother_category",
-			"FOOBAR",
-			"foobar"
+			"generate_related_product_sets"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -834,13 +858,93 @@
 	"groups":
 	[
 		{
+			"selected": 0,
 			"sheets":
 			[
+				{
+					"buffer": 0,
+					"file": "README.md",
+					"settings":
+					{
+						"buffer_size": 2551,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								586,
+								586
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Markdown/Markdown.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 293.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "lib/hotcat/config.rb",
+					"settings":
+					{
+						"buffer_size": 1063,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								940,
+								940
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Ruby/Ruby.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
 			]
 		},
 		{
+			"selected": 0,
 			"sheets":
 			[
+				{
+					"buffer": 2,
+					"file": "lib/hotcat/salsify_products_writer.rb",
+					"settings":
+					{
+						"buffer_size": 4496,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Ruby/Ruby.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
 			]
 		}
 	],
@@ -900,6 +1004,122 @@
 		"height": 0.0,
 		"selected_items":
 		[
+			[
+				"salsi",
+				"lib/hotcat/salsify_products_writer.rb"
+			],
+			[
+				"config",
+				"lib/hotcat/config.rb"
+			],
+			[
+				"salsify",
+				"lib/hotcat/salsify_category_writer.rb"
+			],
+			[
+				"icecatprodu",
+				"lib/hotcat/icecat_product_document.rb"
+			],
+			[
+				"salsifydo",
+				"lib/hotcat/salsify_document_writer.rb"
+			],
+			[
+				"icecatcateg",
+				"lib/hotcat/icecat_category_document.rb"
+			],
+			[
+				"ice",
+				"lib/hotcat/icecat_category_document.rb"
+			],
+			[
+				"idc",
+				"lib/hotcat/icecat_category_document.rb"
+			],
+			[
+				"salsfy",
+				"lib/hotcat/salsify_document_writer.rb"
+			],
+			[
+				"icec",
+				"lib/hotcat/icecat_category_document.rb"
+			],
+			[
+				"gemsp",
+				"hotcat.gemspec"
+			],
+			[
+				"er",
+				"lib/hotcat/error.rb"
+			],
+			[
+				"confi",
+				"spec/lib/config_spec.rb"
+			],
+			[
+				"configsp",
+				"spec/lib/config_spec.rb"
+			],
+			[
+				"icecat_su",
+				"lib/hotcat/icecat_supplier_document.rb"
+			],
+			[
+				"config.",
+				"lib/hotcat/config.rb"
+			],
+			[
+				"lic",
+				"LICENSE.txt"
+			],
+			[
+				"hotcattask",
+				"lib/hotcat_tasks.rake"
+			],
+			[
+				"read",
+				"README.md"
+			],
+			[
+				"spe",
+				"spec/spec_helper.rb"
+			],
+			[
+				"rake",
+				"Rakefile"
+			],
+			[
+				"icecat.r",
+				"lib/hotcat/icecat.rb"
+			],
+			[
+				"hotcat.r",
+				"lib/hotcat.rb"
+			],
+			[
+				"hotcattas",
+				"lib/hotcat/hotcat_tasks.rake"
+			],
+			[
+				"ic",
+				"lib/hotcat/icecat_index_document.rb"
+			],
+			[
+				"icecat",
+				"lib/hotcat/icecat_category_document.rb"
+			],
+			[
+				"hot",
+				"hotcat.gemspec"
+			],
+			[
+				"hotcat.",
+				"hotcat.gemspec"
+			],
+			[
+				"gem",
+				"Gemfile"
+			],
 			[
 				"rule_finder_",
 				"spec/data/rule_finder_spec.rb"
@@ -1015,10 +1235,6 @@
 			[
 				"product.",
 				"app/models/product.rb"
-			],
-			[
-				"config",
-				"config.ru"
 			],
 			[
 				"environ",
@@ -1299,118 +1515,6 @@
 			[
 				"relationscontrol",
 				"app/assets/javascripts/controllers/relationsController.js"
-			],
-			[
-				"proper",
-				"app/models/property.rb"
-			],
-			[
-				"parse",
-				"app/assets/javascripts/utilities/refinementParser.js"
-			],
-			[
-				"categoryrefin",
-				"spec/models/category_refinements_spec.rb"
-			],
-			[
-				"property.",
-				"app/models/property.rb"
-			],
-			[
-				"refinementslib",
-				"lib/refinements_lib.rb"
-			],
-			[
-				"productsetviews",
-				"app/assets/javascripts/views/productSetViews.js"
-			],
-			[
-				"selector",
-				"app/assets/javascripts/views/selector.js"
-			],
-			[
-				"selectrefin",
-				"app/assets/javascripts/views/controls/selectRefinementView.js"
-			],
-			[
-				"selectrefine",
-				"app/assets/javascripts/views/controls/selectRefinementView.js"
-			],
-			[
-				"selector.j",
-				"app/assets/javascripts/views/selector.js"
-			],
-			[
-				"productcontrol",
-				"app/controllers/products_controller.rb"
-			],
-			[
-				"dataspe",
-				"spec/data/data_spec.rb"
-			],
-			[
-				"refinemnts",
-				"spec/controllers/refinements_spec.rb"
-			],
-			[
-				"propertyvalu",
-				"app/models/property_value.rb"
-			],
-			[
-				"catego",
-				"app/models/category.rb"
-			],
-			[
-				"categoryspec",
-				"spec/models/category_spec.rb"
-			],
-			[
-				"category.",
-				"app/models/category.rb"
-			],
-			[
-				"propertyvalues.rb",
-				"spec/factories/property_values.rb"
-			],
-			[
-				"productspec",
-				"spec/models/product_spec.rb"
-			],
-			[
-				"labelcont",
-				"app/controllers/labels_controller.rb"
-			],
-			[
-				"cat",
-				"app/models/category.rb"
-			],
-			[
-				"categoryspe",
-				"spec/models/category_spec.rb"
-			],
-			[
-				"category_re",
-				"app/models/category_refinements.rb"
-			],
-			[
-				"refinements.rb",
-				"app/models/refinements.rb"
-			],
-			[
-				"relationscont",
-				"app/controllers/relations_controller.rb"
-			],
-			[
-				"productscont",
-				"app/controllers/products_controller.rb"
-			],
-			[
-				"products_contr",
-				"app/controllers/products_controller.rb"
-			],
-			[
-				"dir",
-				"lib/dirty_mixin.rb"
 			]
 		],
 		"width": 0.0
