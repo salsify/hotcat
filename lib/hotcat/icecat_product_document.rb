@@ -22,7 +22,7 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
   #        Check out any of the cached XML files for other ideas.
   PRODUCT_FIELDS = {
     Prod_id: 'id',
-    Name: 'Name',
+    Name: 'name',
     Title: 'Complete Label',
     Quality: 'Editorial Quality',
     ReleaseDate: 'Release Date',
