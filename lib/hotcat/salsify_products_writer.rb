@@ -9,6 +9,8 @@ class Hotcat::SalsifyProductsWriter
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
 
+  ACCESSORY_CATEGORY = "Accessory Category"
+
   def initialize(source_directory,
                  files,
                  products_filename,
@@ -40,6 +42,10 @@ class Hotcat::SalsifyProductsWriter
         {
           id: "id",
           roles: [ { products: ["id"] } ]
+        },
+        {
+          id: ACCESSORY_CATEGORY,
+          roles: [ { global: ["accessory_label"] } ]
         }
       ]
     }
@@ -104,7 +110,7 @@ class Hotcat::SalsifyProductsWriter
       accessories = []
       product[:related_product_ids_suppliers].each_pair do |id,supplier|
         accessories.push({
-                          "Accessory Category" => "Related Product",
+                          ACCESSORY_CATEGORY => "Related Product",
                           target_product_id: id
                         })
         @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?

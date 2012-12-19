@@ -28,8 +28,8 @@ namespace :hotcat do
   SALSIFY_DIR = "salsify#{File::SEPARATOR}"
 
 
-  # ICEcat category ID for cameras
-  CAMERA_CATEGORY_ICECAT_ID = "571"
+  # ICEcat category ID for digital cameras
+  CAMERA_CATEGORY_ICECAT_ID = "575"
 
 
   def ensure_directory(path)
