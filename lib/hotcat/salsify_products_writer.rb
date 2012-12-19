@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-require 'hotcat/error'
 require 'hotcat/salsify_document_writer'
 
 # Writes out a Salsify category document.
@@ -14,7 +13,6 @@ class Hotcat::SalsifyProductsWriter
                  files,
                  products_filename,
                  max_products,
-                 relations_filename,
                  max_related_products)
 
     source_directory << File.SEPARATOR unless source_directory.ends_with?(File::SEPARATOR)
@@ -27,21 +25,27 @@ class Hotcat::SalsifyProductsWriter
     @products_filename = products_filename
     @max_products = max_products
     
-    @relations_filename = relations_filename
     @max_related_products = max_related_products
 
     @related_product_ids_suppliers = {}
   end
 
-  # TODO: convert to using a logger
+  # TODO: move to using a logger from puts
   def convert
     @products_file = open_output_file(@products_filename)
-    @products_file << "<products>\n"
 
-    unless @max_related_products == 0
-      @relations_file = open_output_file(@relations_filename)
-      @relations_file << "<product_relations>\n"
-    end
+    # need to make sure that the roles are being written appropriately
+    attributes = {
+      attributes: [
+        {
+          id: "id",
+          roles: [ { products: ["id"] } ]
+        }
+      ]
+    }
+    @products_file << attributes.to_json << ", "
+
+    @products_file << "{ \"products\": [ "
 
     successfully_converted = 0
     Dir.entries(@source_directory).each_with_index do |filename|
@@ -60,8 +64,8 @@ class Hotcat::SalsifyProductsWriter
         product = nil
       end
       unless product.nil? || product.keys.empty? || product[:properties].empty?
+        @products_file << ", " unless successfully_converted == 0
         write_product(product)
-        write_relations(product) unless @max_related_products == 0
         successfully_converted += 1
       else
         puts "WARNING: could not load product from file: #{filename}"
@@ -70,13 +74,8 @@ class Hotcat::SalsifyProductsWriter
       break if @max_products > 0 && successfully_converted >= @max_products
     end
 
-    @products_file << "</products>\n"
+    @products_file << " ] }"
     close_output_file(@products_file)
-
-    unless @max_related_products == 0
-      @relations_file << "</product_relations>\n"
-      close_output_file(@relations_file)
-    end
   end
 
   private
@@ -98,39 +97,33 @@ class Hotcat::SalsifyProductsWriter
   end
 
   def write_product(product)
-    product_xml = Ox::Element.new('product')
-    product[:properties].each_pair do |k,v|
-      if k == "id"
-        product_xml['id'] = v
-      else
-        product_xml << build_property_xml(k,v)
+    product_json = product[:properties].dup
+    product_json[Hotcat::SalsifyCategoryWriter.default_root_category] = product[:category]
+
+    unless product[:related_product_ids_suppliers].empty?
+      accessories = []
+      product[:related_product_ids_suppliers].each_pair do |id,supplier|
+        accessories.push({
+                          "Accessory Category" => "Related Product",
+                          target_product_id: id
+                        })
+        @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?
+
+        break if @max_related_products > 0 && accessories.length >= @max_related_products
       end
+      product_json[:accessories] = accessories
     end
-    
-    product_xml << build_product_category_xml(product[:category]) if product[:category]
-    product_xml << build_image_xml(product[:image_url]) if product[:image_url]
 
-    @products_file << Ox.dump(product_xml).force_encoding('utf-8')
-  end
-
-  def write_relations(product)
-    relations_xml = Ox::Element.new('relations')
-    relations_xml['product_id'] = product[:properties]["id"]
-    relations_xml << build_property_xml('name', "Related Product")
-
-    related_products_loaded = 0
-    product[:related_product_ids_suppliers].each_pair do |id,supplier|
-      related_product_xml = Ox::Element.new('related_product')
-      related_product_xml['product_id'] = id
-      related_product_xml['status'] = 'active'
-      relations_xml << related_product_xml
-
-      @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?
-
-      related_products_loaded += 1
-      break if @max_related_products > 0 && related_products_loaded >= @max_related_products
+    unless product[:image_url].nil?
+      product_json[:digital_assets] = [
+        {
+          url: product[:image_url],
+          is_primary_image: true
+        }
+      ]
     end
-    @relations_file << Ox.dump(relations_xml).force_encoding('utf-8')
+
+    @products_file << product_json.to_json.force_encoding('utf-8')
   end
 
 end

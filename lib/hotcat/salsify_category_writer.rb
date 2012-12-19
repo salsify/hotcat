@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-require 'hotcat/error'
 require 'hotcat/salsify_document_writer'
 
 # Writes out a Salsify category document.
@@ -8,6 +7,12 @@ class Hotcat::SalsifyCategoryWriter
   include Hotcat::SalsifyDocumentWriter
 
   attr_reader :categories
+
+  # Stores the ICEcat server filename for the category document.
+  class << self; attr_reader :filename, :default_root_category; end
+  @filename = "icecat-categories.json.gz"
+
+  @default_root_category = "ICEcat Product Category"
 
   # categories is a hash of hashes representing a bunch of categories to be
   # written out:
@@ -17,25 +22,23 @@ class Hotcat::SalsifyCategoryWriter
     @output_filename = output_filename
   end
 
-  # will very likely raise errors if there are any problems
   def write
-    output_file = open_output_file(@output_filename)
-    
-    cats_xml = Ox::Element.new('categories')
-    @categories.each_pair do |id, category|
-      cat_xml = Ox::Element.new('category')
-      cat_xml[:id] = id
-      category.each_pair do |key,val|
-        if key == :parent_id
-          cat_xml[key] = val unless val.nil?
-        else
-          cat_xml << build_property_xml(key,val)
-        end
-      end
-      cats_xml << cat_xml
-    end
-    output_file << Ox.dump(cats_xml).force_encoding('utf-8')
+    # Category trees tend not to be super big, so it's OK to do this whole thing
+    # in memory instead of streaming it out at little at a time.
 
+    attributes = []
+    @categories.each_pair do |id, category|
+      attribute = {
+                    attribute_id: @default_root_category,
+                    id: id,
+                    name: category[:name]
+                  }
+      attribute[:parent_id] = category[:parent_id] unless category[:parent_id].nil?
+      attributes.push(attribute)
+    end
+
+    output_file = open_output_file(@output_filename)
+    output_file << { attribute_values: attributes }.to_json
     close_output_file(output_file)
   end
 end
