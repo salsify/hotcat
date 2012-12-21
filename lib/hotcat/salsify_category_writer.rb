@@ -11,7 +11,6 @@ class Hotcat::SalsifyCategoryWriter
   # Stores the ICEcat server filename for the category document.
   class << self; attr_reader :filename, :default_root_category; end
   @filename = "icecat-categories.json.gz"
-
   @default_root_category = "ICEcat Product Category"
 
   # categories is a hash of hashes representing a bunch of categories to be
@@ -29,7 +28,7 @@ class Hotcat::SalsifyCategoryWriter
     attributes = []
     @categories.each_pair do |id, category|
       attribute = {
-                    attribute_id: @default_root_category,
+                    attribute_id: SalsifyCategoryWriter.default_root_category,
                     id: id,
                     name: category[:name]
                   }
