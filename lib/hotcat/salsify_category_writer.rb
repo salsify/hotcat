@@ -28,7 +28,7 @@ class Hotcat::SalsifyCategoryWriter
     attributes = []
     @categories.each_pair do |id, category|
       attribute = {
-                    attribute_id: SalsifyCategoryWriter.default_root_category,
+                    attribute_id: Hotcat::SalsifyCategoryWriter.default_root_category,
                     id: id,
                     name: category[:name]
                   }
