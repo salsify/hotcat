@@ -49,9 +49,9 @@ class Hotcat::SalsifyProductsWriter
         }
       ]
     }
-    @products_file << attributes.to_json << ", "
+    @products_file << attributes.to_json << ", \n"
 
-    @products_file << "{ \"products\": [ "
+    @products_file << "{ \"products\": [ \n"
 
     successfully_converted = 0
     Dir.entries(@source_directory).each_with_index do |filename|
@@ -70,7 +70,7 @@ class Hotcat::SalsifyProductsWriter
         product = nil
       end
       unless product.nil? || product.keys.empty? || product[:properties].empty?
-        @products_file << ", " unless successfully_converted == 0
+        @products_file << ", \n" unless successfully_converted == 0
         write_product(product)
         successfully_converted += 1
       else
@@ -80,7 +80,7 @@ class Hotcat::SalsifyProductsWriter
       break if @max_products > 0 && successfully_converted >= @max_products
     end
 
-    @products_file << " ] }"
+    @products_file << "\n ] }"
     close_output_file(@products_file)
   end
 
@@ -103,7 +103,12 @@ class Hotcat::SalsifyProductsWriter
   end
 
   def write_product(product)
-    product_json = product[:properties].dup
+    product_json = Hash.new
+    product[:properties].each_pair do |k,v|
+      # this is to ensure that extra newlines are not present in the output
+      k = k.strip if k.is_a?(String)
+      product_json[k] = v.is_a?(String) ? v.strip : v
+    end
     product_json[Hotcat::SalsifyCategoryWriter.default_root_category] = product[:category]
 
     unless product[:related_product_ids_suppliers].empty?
@@ -111,7 +116,7 @@ class Hotcat::SalsifyProductsWriter
       product[:related_product_ids_suppliers].each_pair do |id,supplier|
         accessories.push({
                           ACCESSORY_CATEGORY => "Related Product",
-                          target_product_id: id
+                          target_product_id: id.strip
                         })
         @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?
 
@@ -123,7 +128,7 @@ class Hotcat::SalsifyProductsWriter
     unless product[:image_url].nil?
       product_json[:digital_assets] = [
         {
-          url: product[:image_url],
+          url: product[:image_url].strip,
           is_primary_image: true
         }
       ]

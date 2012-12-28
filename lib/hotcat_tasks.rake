@@ -103,6 +103,9 @@ namespace :hotcat do
       end
       nil
     end
+  rescue Exception => e
+    puts "#{indent}  ERROR: Failure downloading from <#{uri.to_s}>. Skipping. Details:"
+    puts "#{indent}    #{e.inspect}\n#{e.backtrace.join("\n")}"
   end
 
   # task :test_download => [:environment] do
