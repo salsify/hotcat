@@ -3,10 +3,6 @@ lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require 'hotcat/version'
-require 'hotcat/icecat'
-require 'hotcat/icecat_category_document'
-require 'hotcat/icecat_index_document'
-# TODO: ensure that the rest of the icecat files are required
 
 Gem::Specification.new do |gem|
   gem.name          = "hotcat"
@@ -28,6 +24,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rake'
   gem.add_development_dependency 'rspec'
   gem.add_development_dependency 'railties'
-  gem.add_development_dependency 'nokogiri', '~> 1.5.5'
-  gem.add_development_dependency 'ox', '~> 1.8.0'
+  gem.add_dependency 'nokogiri', '~> 1.5.5'
+  gem.add_dependency 'ox', '~> 1.8.0'
 end
