@@ -111,6 +111,8 @@ class Hotcat::SalsifyProductsWriter
     end
     product_json[Hotcat::SalsifyCategoryWriter.default_root_category] = product[:category]
 
+    # TODO make this sorted so that we get the same set every time (to avoid
+    #   downloading new and unnecessary products to the local cache).
     unless product[:related_product_ids_suppliers].empty?
       accessories = []
       product[:related_product_ids_suppliers].each_pair do |id,supplier|
