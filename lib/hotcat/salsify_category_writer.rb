@@ -9,9 +9,14 @@ class Hotcat::SalsifyCategoryWriter
   attr_reader :categories
 
   # Stores the ICEcat server filename for the category document.
-  class << self; attr_reader :filename, :default_root_category; end
+  class << self
+    attr_reader :filename, :default_root_category,
+                :default_accessory_category, :default_accessory_relationship
+  end
   @filename = "icecat-categories.json.gz"
   @default_root_category = "ICEcat Product Category"
+  @default_accessory_category = "Accessory Label"
+  @default_accessory_relationship = "Related Product"
 
   # categories is a hash of hashes representing a bunch of categories to be
   # written out:
@@ -25,7 +30,12 @@ class Hotcat::SalsifyCategoryWriter
     # Category trees tend not to be super big, so it's OK to do this whole thing
     # in memory instead of streaming it out at little at a time.
 
-    attributes = []
+    attributes = [{
+                    attribute_id: Hotcat::SalsifyCategoryWriter.default_accessory_category,
+                    id: Hotcat::SalsifyCategoryWriter.default_accessory_relationship,
+                    name: Hotcat::SalsifyCategoryWriter.default_accessory_relationship
+                 }]
+
     @categories.each_pair do |id, category|
       attribute = {
                     attribute_id: Hotcat::SalsifyCategoryWriter.default_root_category,

@@ -120,7 +120,7 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
   def end_element(name)
     case name
     when 'ProductRelated'
-      @product[:related_product_ids_suppliers][@related_id] = @related_supplier if @related_id
+      @product[:related_product_ids_suppliers][@related_id.strip] = @related_supplier if @related_id
       @related_id = nil
       @related_supplier = nil
       @in_related = false

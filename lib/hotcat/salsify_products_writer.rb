@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require 'hotcat/salsify_document_writer'
+require 'hotcat/salsify_category_writer'
 
 # Writes out a Salsify category document.
 class Hotcat::SalsifyProductsWriter
@@ -8,8 +9,6 @@ class Hotcat::SalsifyProductsWriter
 
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
-
-  ACCESSORY_CATEGORY = "Accessory Label"
 
   def initialize(source_directory,
                  files,
@@ -29,6 +28,7 @@ class Hotcat::SalsifyProductsWriter
 
     @max_related_products = max_related_products
 
+    @product_ids_loaded = []
     @related_product_ids_suppliers = {}
   end
 
@@ -44,7 +44,7 @@ class Hotcat::SalsifyProductsWriter
           roles: [ { products: ["id"] } ]
         },
         {
-          id: ACCESSORY_CATEGORY,
+          id: Hotcat::SalsifyCategoryWriter.default_accessory_category,
           roles: [ { global: ["accessory_label"] } ]
         }
       ]
@@ -54,7 +54,9 @@ class Hotcat::SalsifyProductsWriter
     @products_file << "{ \"products\": [ \n"
 
     successfully_converted = 0
-    Dir.entries(@source_directory).each_with_index do |filename|
+    # sorted to hopefully use the same products every time to having to load new
+    # accessory files each run.
+    Dir.entries(@source_directory).sort.each_with_index do |filename|
       next if filename.start_with?(".")
       file = @source_directory + filename
       next unless @files.nil? || @files.include?(file)
@@ -71,7 +73,7 @@ class Hotcat::SalsifyProductsWriter
       end
       unless product.nil? || product.keys.empty? || product[:properties].empty?
         @products_file << ", \n" unless successfully_converted == 0
-        write_product(product)
+        @product_ids_loaded.push(write_product(product))
         successfully_converted += 1
       else
         puts "WARNING: could not load product from file: #{filename}"
@@ -82,6 +84,10 @@ class Hotcat::SalsifyProductsWriter
 
     @products_file << "\n ] }"
     close_output_file(@products_file)
+
+    # Probably a faster way to do this, but who cares?
+    @product_ids_loaded.each { |id| @related_product_ids_suppliers.delete(id) }
+    @product_ids_loaded
   end
 
   private
@@ -111,15 +117,16 @@ class Hotcat::SalsifyProductsWriter
     end
     product_json[Hotcat::SalsifyCategoryWriter.default_root_category] = product[:category]
 
-    # TODO make this sorted so that we get the same set every time (to avoid
-    #   downloading new and unnecessary products to the local cache).
     unless product[:related_product_ids_suppliers].empty?
       accessories = []
-      product[:related_product_ids_suppliers].each_pair do |id,supplier|
+      # sorting here to (hopefully) prevent having to download new documents
+      # every single time.
+      product[:related_product_ids_suppliers].keys.sort.each do |id|
         accessories.push({
-                          ACCESSORY_CATEGORY => "Related Product",
+                          Hotcat::SalsifyCategoryWriter.default_accessory_category => Hotcat::SalsifyCategoryWriter.default_accessory_relationship,
                           target_product_id: id.strip
                         })
+        supplier = product[:related_product_ids_suppliers][id]
         @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?
 
         break if @max_related_products > 0 && accessories.length >= @max_related_products
@@ -137,6 +144,9 @@ class Hotcat::SalsifyProductsWriter
     end
 
     @products_file << product_json.to_json.force_encoding('utf-8')
+
+    # return the ID for the product
+    product[:properties]["id"]
   end
 
 end
