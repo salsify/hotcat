@@ -9,7 +9,7 @@ class Hotcat::SalsifyProductsWriter
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
 
-  ACCESSORY_CATEGORY = "Accessory Category"
+  ACCESSORY_CATEGORY = "Accessory Label"
 
   def initialize(source_directory,
                  files,
@@ -26,7 +26,7 @@ class Hotcat::SalsifyProductsWriter
 
     @products_filename = products_filename
     @max_products = max_products
-    
+
     @max_related_products = max_related_products
 
     @related_product_ids_suppliers = {}
