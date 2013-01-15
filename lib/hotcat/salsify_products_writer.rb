@@ -7,6 +7,13 @@ require 'hotcat/salsify_category_writer'
 class Hotcat::SalsifyProductsWriter
   include Hotcat::SalsifyDocumentWriter
 
+  # Hack until we support roles
+  class << self
+    attr_reader :default_product_id_property, :default_product_name_property
+  end
+  @default_product_id_property = "sku"
+  @default_product_name_property = "ProductName"
+
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
 
@@ -124,7 +131,7 @@ class Hotcat::SalsifyProductsWriter
       product[:related_product_ids_suppliers].keys.sort.each do |id|
         accessories.push({
                           Hotcat::SalsifyCategoryWriter.default_accessory_category => Hotcat::SalsifyCategoryWriter.default_accessory_relationship,
-                          target_product_id: id.strip
+                          Hotcat::SalsifyProductsWriter.default_product_id_property => id.strip
                         })
         supplier = product[:related_product_ids_suppliers][id]
         @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].nil?
@@ -146,7 +153,7 @@ class Hotcat::SalsifyProductsWriter
     @products_file << product_json.to_json.force_encoding('utf-8')
 
     # return the ID for the product
-    product[:properties]["id"]
+    product[:properties][Hotcat::SalsifyProductsWriter.default_product_id_property]
   end
 
 end

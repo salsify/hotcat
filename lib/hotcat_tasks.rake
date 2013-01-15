@@ -34,7 +34,7 @@ namespace :hotcat do
 
   def ensure_directory(path)
     if !File.exist?(path)
-      return Dir.mkdir(path)
+      return FileUtils.makedirs(path)
     elsif !File.directory?(path)
       return false
     end

@@ -15,6 +15,7 @@ class Hotcat::SalsifyCategoryWriter
   end
   @filename = "icecat-categories.json.gz"
   @default_root_category = "ICEcat Product Category"
+  # Hack until we have roles
   @default_accessory_category = "Accessory Label"
   @default_accessory_relationship = "Related Product"
 
@@ -47,7 +48,12 @@ class Hotcat::SalsifyCategoryWriter
     end
 
     output_file = open_output_file(@output_filename)
-    output_file << { attribute_values: attributes }.to_json
+    output_file << "{ attribute_values: [\n"
+    attributes.each_with_index do |attribute, index|
+      output_file << ",\n" if index > 0
+      output_file << attribute.to_json
+    end
+    output_file << "\n]}\n"
     close_output_file(output_file)
   end
 end

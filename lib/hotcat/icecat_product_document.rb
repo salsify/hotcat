@@ -1,6 +1,7 @@
 require 'nokogiri'
 
 require 'hotcat/icecat'
+require 'hotcat/salsify_products_writer'
 
 # Nokogiri SAX parser for ICEcat product XML files.
 #
@@ -21,8 +22,8 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
   # Note: these are not all the product fields. We could load more.
   #        Check out any of the cached XML files for other ideas.
   PRODUCT_FIELDS = {
-    Prod_id: 'id',
-    Name: 'name',
+    Prod_id: Hotcat::SalsifyProductsWriter.default_product_id_property,
+    Name: Hotcat::SalsifyProductsWriter.default_product_name_property,
     Title: 'Complete Label',
     Quality: 'Editorial Quality',
     ReleaseDate: 'Release Date',

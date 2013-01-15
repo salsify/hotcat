@@ -8,7 +8,7 @@ module Hotcat::SalsifyDocumentWriter
 
   def open_output_file(filename)
     if File.exists?(filename)
-      raise Hotcat::SalsifyWriterError, "SalsifyDocumentWriter: Output file exists: #{output_filename}"
+      raise Hotcat::SalsifyWriterError, "SalsifyDocumentWriter: Output file exists: #{filename}"
     end
     
     output_file = File.new(filename, 'w', encoding: "UTF-8")
