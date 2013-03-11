@@ -200,7 +200,7 @@ namespace :hotcat do
       File.delete(output_file)
     end
     
-    Hotcat::SalsifyAttriubtesWriter.new(output_file).write
+    Hotcat::SalsifyAttributesWriter.new(output_file).write
     puts "Done writing attributes file."
   end
 
