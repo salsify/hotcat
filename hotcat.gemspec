@@ -25,5 +25,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'rspec'
   gem.add_development_dependency 'railties'
   gem.add_dependency 'nokogiri', '~> 1.5.5'
-  gem.add_dependency 'ox', '~> 1.8.0'
+  gem.add_dependency 'rubyzip', '~> 0.9.9'
 end

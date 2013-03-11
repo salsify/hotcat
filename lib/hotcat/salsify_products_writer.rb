@@ -7,15 +7,17 @@ require 'hotcat/salsify_category_writer'
 class Hotcat::SalsifyProductsWriter
   include Hotcat::SalsifyDocumentWriter
 
-  # Hack until we support roles
+
   class << self
     attr_reader :default_product_id_property, :default_product_name_property
   end
   @default_product_id_property = "sku"
   @default_product_name_property = "ProductName"
 
+
   # The list of related products to make sure to download.
   attr_reader :related_product_ids_suppliers
+
 
   def initialize(source_directory,
                  files,
@@ -39,26 +41,10 @@ class Hotcat::SalsifyProductsWriter
     @related_product_ids_suppliers = {}
   end
 
+
   # TODO: move to using a logger from puts
   def convert
     @products_file = open_output_file(@products_filename)
-
-    # need to make sure that the roles are being written appropriately
-    attributes = {
-      attributes: [
-        {
-          id: "id",
-          roles: [ { products: ["id"] } ]
-        },
-        {
-          id: Hotcat::SalsifyCategoryWriter.default_accessory_category,
-          roles: [ { global: ["accessory_label"] } ]
-        }
-      ]
-    }
-    @products_file << attributes.to_json << ", \n"
-
-    @products_file << "{ \"products\": [ \n"
 
     successfully_converted = 0
     # sorted to hopefully use the same products every time to having to load new
@@ -89,7 +75,6 @@ class Hotcat::SalsifyProductsWriter
       break if @max_products > 0 && successfully_converted >= @max_products
     end
 
-    @products_file << "\n ] }"
     close_output_file(@products_file)
 
     # Probably a faster way to do this, but who cares?
@@ -97,7 +82,9 @@ class Hotcat::SalsifyProductsWriter
     @product_ids_loaded
   end
 
+
   private
+
 
   def load_product(filename)
     product_document = Hotcat::ProductDocument.new
@@ -114,6 +101,7 @@ class Hotcat::SalsifyProductsWriter
 
     product_document.product
   end
+
 
   def write_product(product)
     product_json = Hash.new

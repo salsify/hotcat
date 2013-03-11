@@ -8,7 +8,7 @@ module Hotcat::SalsifyDocumentWriter
 
   def open_output_file(filename)
     if File.exists?(filename)
-      raise Hotcat::SalsifyWriterError, "SalsifyDocumentWriter: Output file exists: #{filename}"
+      raise Hotcat::SalsifyWriterError, "SalsifyDocumentWriter: output file exists: #{filename}"
     end
     
     output_file = File.new(filename, 'w', encoding: "UTF-8")
@@ -17,21 +17,25 @@ module Hotcat::SalsifyDocumentWriter
       output_file = Zlib::GzipWriter.new(output_file)
     end
 
-    header = {
-      header: {
-        version: "2012-12",
-        update_semantics: "upsert",
-        scope: ["all"]
-      }
-    }
-    output_file << "[\n" << header.to_json << ",\n"
-
+    start_file(output_file)
     output_file
   end
 
   def close_output_file(file)
-    file << "\n]"
+    end_file(file)
     file.close
+  end
+
+
+  private
+
+
+  def start_file(file)
+    file << "[\n"
+  end
+
+  def end_file(file)
+    file << "\n]"
   end
   
 end

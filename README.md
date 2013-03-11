@@ -45,30 +45,29 @@ I recommend you do this in Rails using initializers. Basically put a hotcat.rb f
 
 Hotcat comes with a number of rake tasks that are the primary interface for the system. Make sure that your configuration is set up, especially the local cache directory, for this to work appropriately.
 
-#### Primary Tasks
+#### Primary Task
 
-If starting from scratch, run the following tasks in this order:
+There is one main rake task that _should_ take care of everything in one fell swoop
 
-1. **hotcat:convert_categories**: grabs the ICEcat category document and converts it to Salsify's data ingest format.
-2. **hotcat:build_product_camera_cache**: downloads details for up to the maximum number of products specified in the hotcat configuration in the camera category. The output will be a file called salsify-CategoryList.xml.gz.
-3. **hotcat:convert_products**: converts the locally cached products to salsify product documents. This may download additional product detail documents for related products and then load them.
-
-Running these tasks will produce 4 files in the _salsify_ subdirectory of the specified cache directory:
-* salsify-CategoriesList.xml.gz
-* salsify-products.xml.gz
-* salsify-products-related.xml.gz
-* salsify-relations.xml.gz
-
-They can be loaded in normally via the standard salsify data tasks. For example:
+```bash
+rake hotcat:generate_salsify_import
 ```
-  rake salsify:clean_load file=/path/to/cache/dir/salsify-CategoriesList.xml.gz
-  rake salsify:load file=/path/to/cache/dir/salsify-products.xml.gz
-  rake salsify:load file=/path/to/cache/dir/salsify-products-related.xml.gz
-  rake salsify:load file=/path/to/cache/dir/salsify-relations.xml.gz
+
+This will produce a single file called `salsify-import.zip` in the _salsify_ subdirectory of the cache directory specified in your hotcat configuration. That zipfile can be fed directly to Salsify using one of the two following commands:
+```bash
+  rake salsify:clean_load file=/path/to/cache/dir/salsify-import.zip
+  rake salsify:load file=/path/to/cache/dir/salsify-import.zip
 ```
-Note that the first of these runs a *clean_load* which will reset the database. The *load* command is simply additive. If you just want to add to an existing database without resetting you can run *load* with the categories file instead of *clean_load* and everything should still work fine.
+That the first of these runs a *clean_load* which will reset the database. The *load* command is simply additive. If you just want to add to an existing database without resetting you can run *load* with the categories file instead of *clean_load* and everything should still work fine.
+
+If the salsify-import.zip file exists when the rake task is run, it will be moved to a time-stamped version of the file such as salsify-import-TIMESTAMP.zip before a fresh salsify-import.zip file is generated.
 
 #### Other Tasks
 
-* **hotcat:load_suppliers**: ensures the ICEcat supplier list is downloaded locally. This task is rarely run as it is called implicitly as needed by other tasks.
+These tasks are rarely run individually as they are called implicitly as needed by other tasks. There are provided separately primarily for debugging.
+
+* **hotcat:load_suppliers**: ensures the ICEcat supplier list is downloaded locally.
 * **hotcat:load_categories**: ensures the ICEcat category list document is downloaded.
+* **hotcat:convert_categories**: grabs the ICEcat category document and converts it to Salsify's data ingest format.
+* **hotcat:build_product_camera_cache**: downloads details for up to the maximum number of products specified in the hotcat configuration in the camera category. The output will be a file called salsify-CategoryList.xml.gz.
+* **hotcat:convert_products**: converts the locally cached products to salsify product documents. This may download additional product detail documents for related products and then load them.

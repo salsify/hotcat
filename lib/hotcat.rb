@@ -24,7 +24,8 @@ require "hotcat/version"
 
 require "hotcat/icecat"
 require "hotcat/salsify_document_writer"
-
+require "hotcat/salsify_index_writer"
+require "hotcat/salsify_attributes_writer"
 require "hotcat/icecat_supplier_document"
 require "hotcat/icecat_category_document"
 require "hotcat/salsify_category_writer"

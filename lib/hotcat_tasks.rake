@@ -8,6 +8,8 @@ require "hotcat/config"
 require "hotcat/version"
 require "hotcat/icecat"
 require "hotcat/salsify_document_writer"
+require "hotcat/salsify_index_writer"
+require "hotcat/salsify_attributes_writer"
 require "hotcat/icecat_supplier_document"
 require "hotcat/icecat_category_document"
 require "hotcat/salsify_category_writer"
@@ -40,6 +42,45 @@ namespace :hotcat do
     end
     true
   end
+
+
+  def output_filename(basename)
+    basename << ".gz" unless basename.end_with?(".gz")
+    "#{@config.cache_dir}#{SALSIFY_DIR}#{SALSIFY_PREFIX}#{basename}"
+  end
+
+  def attributes_filename
+    output_filename(Hotcat::SalsifyAttributesWriter.filename)
+  end
+
+  def attribute_values_filename
+    output_filename(Hotcat::SalsifyCategoryWriter.filename)
+  end
+
+  def products_filename
+    output_filename("products.json.gz")
+  end
+
+  def products_archive_filename
+    output_filename("products-#{Time.now.to_i}.json.gz")
+  end
+
+  def accessories_filename
+    output_filename("accessories.json.gz")
+  end
+
+  def accessories_archive_filename
+    output_filename("accessories-#{Time.now.to_i}.json.gz")
+  end
+
+  def import_filename
+    output_filename("import.zip")
+  end
+
+  def import_archive_filename
+    output_filename("import-#{Time.now.to_i}.zip")
+  end
+
 
   # Ensures that all required configuration has been set.
   task :setup => [:environment] do
@@ -78,7 +119,7 @@ namespace :hotcat do
     req = Net::HTTP::Get.new(uri.request_uri)
     req.basic_auth(@config.username, @config.password) if auth_required
     response = http.request(req)
-    if response.code == "200" then
+    if response.code == "200"
       puts "#{indent}Download successful. saving to <#{filename}>"
 
       # Ensure that we're storing the document compressed locally.
@@ -97,7 +138,7 @@ namespace :hotcat do
       filename
     else
       puts "#{indent}  ERROR: HTTP RESPONSE #{response.code}"
-      if retry_download then
+      if retry_download
         puts "#{indent}  Retrying..."
         return download_to_local(uri, filename, false, auth_required, indent)
       end
@@ -124,7 +165,7 @@ namespace :hotcat do
 
   def load_supplier_hash()
     file = "#{@config.cache_dir}#{REFS_DIR}#{Hotcat::SupplierDocument.filename}"
-    if not File.exists?(file) then
+    unless File.exists?(file)
       puts "Suppliers XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::SupplierDocument.filename}")
       download_to_local(uri, file, true, true, "    ")
@@ -144,14 +185,29 @@ namespace :hotcat do
   end
 
   desc "Loads supplier list into a local hash for cross-referencing. Makes no updates to the database."
-  task :load_suppliers  => ["hotcat:setup"] do
+  task :load_suppliers => ["hotcat:setup"] do
     load_supplier_hash
+  end
+
+
+  desc "Creates the Salsify attributes file, overwriting if necessary."
+  task :convert_attributes => ["hotcat:setup"] do
+    output_file = attributes_filename
+    puts "Writing attributes to #{output_file}"
+
+    if File.exists?(output_file)
+      puts "WARNING: attributes file already exists. Replacing."
+      File.delete(output_file)
+    end
+    
+    Hotcat::SalsifyAttriubtesWriter.new(output_file).write
+    puts "Done writing attributes file."
   end
 
 
   def load_categories_hash()
     file = "#{@config.cache_dir}#{REFS_DIR}#{Hotcat::CategoryDocument.filename}"
-    if not File.exists?(file) then
+    unless File.exists?(file)
       puts "Categories XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::CategoryDocument.filename}")
       download_to_local(uri, file, true, true, "    ")
@@ -190,9 +246,7 @@ namespace :hotcat do
     if @categories.empty?
       puts "ERROR: no categories loaded. Something has gone wrong."
     else
-      ofile = "#{SALSIFY_PREFIX}#{Hotcat::SalsifyCategoryWriter.filename}"
-      ofile << ".gz" unless ofile.end_with?(".gz")
-      output_file = "#{@config.cache_dir}#{SALSIFY_DIR}#{ofile}"
+      output_file = attribute_values_filename
       puts "Writing categories to #{output_file}"
       Hotcat::SalsifyCategoryWriter.new(@categories, output_file).write
     end
@@ -259,7 +313,7 @@ namespace :hotcat do
   # directory.
   def product_id_from_filename(filename)
     match = /#{PRODUCT_FILENAME_PREFIX}(?<encoded_id>\w+)#{PRODUCT_FILENAME_SUFFIX}/.match filename
-    return nil if not match
+    return nil unless match
     URI.decode_www_form_component(match[:encoded_id])
   end
 
@@ -288,7 +342,7 @@ namespace :hotcat do
     total_downloaded_failed = 0
     index_document.products.each do |p|
       prod_id = p[:id]
-      if product_file?(prod_id) then
+      if product_file?(prod_id)
         already_downloaded += 1
         puts "  #{total_downloaded}: Local file exists for #{prod_id}"
       else
@@ -314,7 +368,7 @@ namespace :hotcat do
     start_time = Time.now
 
     file = "#{@config.cache_dir}#{INDEX_DIR}#{Hotcat::IndexDocument.full_index_local_filename}"
-    if not File.exists?(file) then
+    unless File.exists?(file)
       puts "Full Index XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.indexes_url}#{Hotcat::IndexDocument.full_index_remote_filename}")
       if !download_to_local(uri, file, true, true, "    ")
@@ -337,11 +391,10 @@ namespace :hotcat do
   task :convert_products => ["hotcat:setup"] do
     products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
 
-    products_filename = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products.json.gz"
+    products_filename = products_filename
     if File.exist?(products_filename)
       puts "WARNING: products file exists. Renaming to backup before continuing."
-      newname = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-#{Time.now.to_i}.json.gz"
-      File.rename(products_filename, newname)
+      File.rename(products_filename, products_archive_filename)
     end
 
     puts "Converting all products found in files in directory #{products_directory}."
@@ -369,11 +422,10 @@ namespace :hotcat do
       files.push(filename)
     end
 
-    related_products_filename = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-related.json.gz"
+    related_products_filename = accessories_filename
     if File.exist?(related_products_filename)
       puts "WARNING: related products file exists. Renaming to backup before continuing."
-      newname = @config.cache_dir + SALSIFY_DIR + "#{SALSIFY_PREFIX}products-related-#{Time.now.to_i}.json.gz"
-      File.rename(related_products_filename, newname)
+      File.rename(related_products_filename, accessories_archive_filename)
     end
     puts "Converting the necessary related products."
     converter = Hotcat::SalsifyProductsWriter.new(products_directory,
@@ -384,6 +436,27 @@ namespace :hotcat do
     converter.convert
 
     puts "Done converting products and related products."
+  end
+
+
+  desc "Generates a complete Salsify import from ICEcat data"
+  task :generate_salsify_import => ["hotcat:setup","hotcat:convert_attributes","hotcat:convert_categories","hotcat:convert_products"] do
+    import_file = import_filename
+    puts "Generating Salsify import document at #{import_file}"
+
+    if File.exists?(import_file)
+      puts "WARNING: import file exists. Archiving."
+      File.rename(import_file, import_archive_filename)
+    end
+
+    Hotcat::SalsifyIndexWriter(
+      import_file,
+      attributes_filename,
+      attribute_values_filename,
+      [products_filename, accessories_filename]
+    ).write
+
+    puts "Done creating import document: #{import_file}"
   end
 
 end
