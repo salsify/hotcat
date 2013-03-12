@@ -10,19 +10,19 @@ require 'hotcat/salsify_document_writer'
 #   { "attribute_values": "attribute_values.json" },
 #   { "products": "products.json" }
 # ]
-class Hotcat::SalsifyProductsWriter
+class Hotcat::SalsifyIndexWriter
   include Hotcat::SalsifyDocumentWriter
 
 
-  def initialize(filename, attributes_file, categories_file, products_files)
-    unless filename.end_with(".zip")
+  def initialize(filename, attributes_file, categories_file, products_file)
+    unless filename.end_with?(".zip")
       raise Hotcat::SalsifyWriterError, "index filename must end in .zip: #{filename}"
     end
 
     @filename = filename
     @attributes_file = attributes_file
     @categories_file = categories_file
-    @products_files = products_files
+    @products_file = products_file
   end
 
 
@@ -35,17 +35,11 @@ class Hotcat::SalsifyProductsWriter
       raise Hotcat::SalsifyWriterError, "categories (attribute_values) file does not exist: #{@categories_file}"
     end
 
-    if @products_files.empty?
-      raise Hotcat::SalsifyWriterError, "no product files listed"
+    unless File.exists?(@products_file)
+      raise Hotcat::SalsifyWriterError, "product file does not exist: #{@products_file}"
     end
 
-    @products_files.each do |f|
-      unless File.exists?(f)
-        raise Hotcat::SalsifyWriterError, "product file does not exist: #{f}"
-      end
-    end
-
-    import_file = File.dirname(filename) + "import.json"
+    import_file = File.dirname(@filename) + File::SEPARATOR + "import.json"
     if File.exists?(import_file)
       puts "WARNING: #{import_file} exists. Overwriting."
       File.delete(import_file)
@@ -56,8 +50,14 @@ class Hotcat::SalsifyProductsWriter
       zipfile.add(File.basename(import_file), import_file)
       zipfile.add(File.basename(@attributes_file), @attributes_file)
       zipfile.add(File.basename(@categories_file), @categories_file)
-      products_files.each { |f| zipfile.add(File.basename(f), f) }
+      zipfile.add(File.basename(@products_file), @products_file)
     end
+
+    # clean up all pieces
+    File.delete(import_file)
+    File.delete(@attributes_file)
+    File.delete(@categories_file)
+    File.delete(@products_file)
   end
 
 
@@ -69,20 +69,20 @@ class Hotcat::SalsifyProductsWriter
 
     write_header(index_file)
 
-    file << ",\n"
+    index_file << ",\n"
 
-    attributes = { attributes: "#{@attributes_file}" }
-    file << attributes.to_json.force_encoding('utf-8')
+    attributes = { attributes: "#{File.basename(@attributes_file)}" }
+    index_file << attributes.to_json.force_encoding('utf-8')
 
-    file << ",\n"
+    index_file << ",\n"
 
-    attribute_values = { attribute_values: "#{@categories_file}" }
-    file << attribute_values.to_json.force_encoding('utf-8')
+    attribute_values = { attribute_values: "#{File.basename(@categories_file)}" }
+    index_file << attribute_values.to_json.force_encoding('utf-8')
 
-    file << ",\n"
+    index_file << ",\n"
 
-    products = { products: @products_files }
-    file << products.to_json.force_encoding('utf-8')
+    products = { products: "#{File.basename(@products_file)}" }
+    index_file << products.to_json.force_encoding('utf-8')
 
     close_output_file(index_file)
   end

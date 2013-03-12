@@ -5,8 +5,6 @@ require 'hotcat/salsify_products_writer'
 require 'hotcat/salsify_category_writer'
 
 # Writes out the attributes document required by Salsify
-#
-# FIXME digital asset roles. Other roles?
 class Hotcat::SalsifyAttributesWriter
   include Hotcat::SalsifyDocumentWriter
 
@@ -14,7 +12,7 @@ class Hotcat::SalsifyAttributesWriter
   class << self
     attr_reader :filename
   end
-  @filename = "icecat-attributes.json.gz"
+  @filename = "attributes.json.gz"
 
 
   def initialize(filename)
@@ -23,30 +21,33 @@ class Hotcat::SalsifyAttributesWriter
 
 
   def write
-    attributes_file = open_output_file(@filename)
-
-    attributes = {
-      attributes: [
-        {
-          id: Hotcat::SalsifyProductsWriter.default_product_id_property,
-          roles: {
-            products: ["id"],
-            accessories: ["target_product_id"]
-          }
-        },
-        {
-          id: Hotcat::SalsifyProductsWriter.default_product_name_property,
-          roles: { products: ["name"] }
-        },
-        {
-          id: Hotcat::SalsifyCategoryWriter.default_accessory_category,
-          roles: { global: ["accessory_label"] }
+    attributes = [
+      {
+        id: Hotcat::SalsifyProductsWriter.default_product_id_property,
+        roles: {
+          products: ["id"],
+          accessories: ["target_product_id"]
         }
-      ]
-    }
-    attributes_file << attributes.to_json.force_encoding('utf-8')
+      },
+      {
+        id: Hotcat::SalsifyProductsWriter.default_product_name_property,
+        roles: { products: ["name"] }
+      },
+      {
+        id: Hotcat::SalsifyCategoryWriter.default_accessory_category,
+        roles: { global: ["accessory_label"] }
+      }
+    ]
 
-    close_output_file(attributes_file)
+    # TODO not DRY see category_writer and product_writer
+    # we do this here rather than simply outputting the json because the parent
+    # module sets up the outline for the array to help out with bulk loading.
+    output_file = open_output_file(@filename)
+    attributes.each_with_index do |attribute, index|
+      output_file << ",\n" if index > 0
+      output_file << attribute.to_json.force_encoding('utf-8')
+    end
+    close_output_file(output_file)
   end
 
 end

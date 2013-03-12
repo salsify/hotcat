@@ -86,6 +86,19 @@ class Hotcat::SalsifyProductsWriter
   private
 
 
+  # override to prevent writing the wrapping array bracket
+  # TODO remove once Salsify can accept an array of product documents
+  def start_file(file)
+    # noop
+  end
+
+  # override to prevent writing the wrapping array bracket
+  # TODO remove once Salsify can accept an array of product documents
+  def end_file(file)
+    # noop
+  end
+
+
   def load_product(filename)
     product_document = Hotcat::ProductDocument.new
     parser = Nokogiri::XML::SAX::Parser.new(product_document)

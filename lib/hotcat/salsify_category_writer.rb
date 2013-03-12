@@ -15,7 +15,7 @@ class Hotcat::SalsifyCategoryWriter
     attr_reader :filename, :default_root_category,
                 :default_accessory_category, :default_accessory_relationship
   end
-  @filename = "icecat-categories.json.gz"
+  @filename = "categories.json.gz"
   @default_root_category = "ICEcat Product Category"
 
   @default_accessory_category = "Accessory Label"

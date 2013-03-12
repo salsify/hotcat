@@ -45,8 +45,15 @@ namespace :hotcat do
 
 
   def output_filename(basename)
-    basename << ".gz" unless basename.end_with?(".gz")
+    basename << ".gz" unless basename.end_with?(".gz") || basename.end_with?(".zip")
     "#{@config.cache_dir}#{SALSIFY_DIR}#{SALSIFY_PREFIX}#{basename}"
+  end
+
+  def archive_file_if_needed(filename, archive_filename)
+    if File.exist?(filename)
+      puts "#{filename} exists. Renaming to #{archive_filename} before continuing."
+      File.rename(filename, archive_filename)
+    end
   end
 
   def attributes_filename
@@ -248,6 +255,10 @@ namespace :hotcat do
     else
       output_file = attribute_values_filename
       puts "Writing categories to #{output_file}"
+      if File.exists?(output_file)
+        puts "WARNING: #{output_file} exists. Replacing."
+        File.delete(output_file)
+      end
       Hotcat::SalsifyCategoryWriter.new(@categories, output_file).write
     end
 
@@ -391,19 +402,18 @@ namespace :hotcat do
   task :convert_products => ["hotcat:setup"] do
     products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
 
-    products_filename = products_filename
-    if File.exist?(products_filename)
-      puts "WARNING: products file exists. Renaming to backup before continuing."
-      File.rename(products_filename, products_archive_filename)
-    end
+    products_file = products_filename
+    archive_file_if_needed(products_file, products_archive_filename)
 
     puts "Converting all products found in files in directory #{products_directory}."
-    puts "Storing products in #{products_filename}"
+    puts "Storing products in #{products_file}"
     puts "Storing relations (max #{@config.max_related_products} per product)"
+
+    # FIXME this is not respecting the source category
 
     converter = Hotcat::SalsifyProductsWriter.new(products_directory,
                                                   nil,
-                                                  products_filename,
+                                                  products_file,
                                                   @config.max_products,
                                                   @config.max_related_products)
     converter.convert
@@ -412,7 +422,7 @@ namespace :hotcat do
     files = []
     converter.related_product_ids_suppliers.each_pair do |id, supplier|
       filename = product_file_name(id)
-      unless File.exist?(filename)
+      unless File.exists?(filename)
         filename = product_file_name(id)
         uri = product_icecat_query_uri(id, supplier)
         unless download_to_local(uri, filename, true, true, indent = '  ')
@@ -423,10 +433,8 @@ namespace :hotcat do
     end
 
     related_products_filename = accessories_filename
-    if File.exist?(related_products_filename)
-      puts "WARNING: related products file exists. Renaming to backup before continuing."
-      File.rename(related_products_filename, accessories_archive_filename)
-    end
+    archive_file_if_needed(related_products_filename, accessories_archive_filename)
+
     puts "Converting the necessary related products."
     converter = Hotcat::SalsifyProductsWriter.new(products_directory,
                                                   files,
@@ -435,7 +443,43 @@ namespace :hotcat do
                                                   0)
     converter.convert
 
+    # At this point we have 2 documents which are long lists of products, but
+    # to be consumed by Salsify they have to be combined into one until Salsify
+    # can handle multiple product import documents coming from a single source.
+    # TODO remove when Salsify can handle multiple import product documents
+    tmp_filename = File.join(File.dirname(products_file), "#{Time.now.to_i}-#{File.extname(products_file)}")
+    output_file = File.new(tmp_filename, 'wb')
+    begin
+      output_file = Zlib::GzipWriter.new(output_file) if tmp_filename.end_with?(".gz")
+      output_file << "[\n"
+      copy_file_contents(output_file, products_file)
+      output_file << "\n,\n"
+      copy_file_contents(output_file, related_products_filename)
+      output_file << "\n]"
+    ensure
+      output_file.close
+    end
+    File.delete(products_file)
+    File.delete(related_products_filename)
+    File.rename(tmp_filename, products_file)
+
     puts "Done converting products and related products."
+  end
+
+  def copy_file_contents(output_stream, input_file)
+    input_stream = if input_file.ends_with?(".gz")
+      Zlib::GzipReader.open(input_file)
+    else
+      File.open(input_file, "rb")
+    end
+
+    begin
+      while bytes = input_stream.read(4096)
+        output_stream << bytes
+      end
+    ensure
+      input_stream.close
+    end
   end
 
 
@@ -443,17 +487,13 @@ namespace :hotcat do
   task :generate_salsify_import => ["hotcat:setup","hotcat:convert_attributes","hotcat:convert_categories","hotcat:convert_products"] do
     import_file = import_filename
     puts "Generating Salsify import document at #{import_file}"
+    archive_file_if_needed(import_file, import_archive_filename)
 
-    if File.exists?(import_file)
-      puts "WARNING: import file exists. Archiving."
-      File.rename(import_file, import_archive_filename)
-    end
-
-    Hotcat::SalsifyIndexWriter(
+    Hotcat::SalsifyIndexWriter.new(
       import_file,
       attributes_filename,
       attribute_values_filename,
-      [products_filename, accessories_filename]
+      products_filename
     ).write
 
     puts "Done creating import document: #{import_file}"
