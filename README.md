@@ -71,8 +71,8 @@ rake hotcat:generate_salsify_import
 
 This will produce a single file called `salsify-import.zip` in the _salsify_ subdirectory of the cache directory specified in your hotcat configuration. That zipfile can be fed directly to Salsify using one of the two following commands:
 ```bash
-  rake salsify:clean_load file=/path/to/cache/dir/salsify-import.zip
-  rake salsify:load file=/path/to/cache/dir/salsify-import.zip
+rake salsify:clean_load file=/path/to/cache/dir/salsify-import.zip
+rake salsify:load file=/path/to/cache/dir/salsify-import.zip
 ```
 That the first of these runs a *clean_load* which will reset the database. The *load* command is simply additive. If you just want to add to an existing database without resetting you can run *load* with the categories file instead of *clean_load* and everything should still work fine.
 
