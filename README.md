@@ -37,17 +37,33 @@ Configuration is done as follows:
     # REQUIRED
     # This is the local icecat directory where all data will be stored.
     config.cache_dir = "/path/to/your/local/icecat/files"
+
+    # whether or not to use AWS for images
+    config.use_aws_for_images = true
+    config.aws_bucket_id = "icecat-images-cache"
+    config.aws_key_id = ENV['AWS_ACCESS_KEY_ID']
+    config.aws_key = ENV['AWS_SECRET_ACCESS_KEY']
   end
 ```
 I recommend you do this in Rails using initializers. Basically put a hotcat.rb file into config/initializers and you'll be good to go.
+
+Note that using AWS could be advantageous if you're doing multiple imports, since it will cache the ICEcat images into an S3 bucket only once for each product. The public URL will then refer to files in this bucket rather than to ICEcat.
 
 ### Rake tasks
 
 Hotcat comes with a number of rake tasks that are the primary interface for the system. Make sure that your configuration is set up, especially the local cache directory, for this to work appropriately.
 
-#### Primary Task
+#### Primary Tasks
 
-There is one main rake task that _should_ take care of everything in one fell swoop
+First you must download data files from ICEcat to convert.
+
+```bash
+rake hotcat:build_product_camera_cache
+```
+
+This will download details for up to the maximum number of products specified in the hotcat configuration in the digital camera category.
+
+There is one main rake task that _should_ take care of everything in one fell swoop once you have the data downloaded.
 
 ```bash
 rake hotcat:generate_salsify_import
@@ -61,6 +77,20 @@ This will produce a single file called `salsify-import.zip` in the _salsify_ sub
 That the first of these runs a *clean_load* which will reset the database. The *load* command is simply additive. If you just want to add to an existing database without resetting you can run *load* with the categories file instead of *clean_load* and everything should still work fine.
 
 If the salsify-import.zip file exists when the rake task is run, it will be moved to a time-stamped version of the file such as salsify-import-TIMESTAMP.zip before a fresh salsify-import.zip file is generated.
+
+#### Generating Salsify CSV Import Documents
+
+Generating CSV documents is a 2-step process, as the generation of a CSV document depends on knowing the column order ahead of time, which we don't know until we look at some files.
+
+First, generate a JSON export. As part of this process the JSON export will produce a file called `salsify-attributes_list.txt` in the `/path/to/cache/salsify/` directory. This is the list of all product attributes seen during the production of the Salsify JSON file.
+
+Now that you've generated the list, you can generate a CSV export:
+
+```bash
+rake hotcat:generate_salsify_csv_import attributes=/path/to/cache/salsify/salsify-attributes_list.txt
+```
+
+This will generate a single CSV file that contains both products and accessories for the import.
 
 #### Other Tasks
 

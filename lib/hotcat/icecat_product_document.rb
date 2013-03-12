@@ -22,8 +22,8 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
   # Note: these are not all the product fields. We could load more.
   #        Check out any of the cached XML files for other ideas.
   PRODUCT_FIELDS = {
-    Prod_id: Hotcat::SalsifyProductsWriter.default_product_id_property,
-    Name: Hotcat::SalsifyProductsWriter.default_product_name_property,
+    Prod_id: Hotcat::SalsifyProductsLoader.default_product_id_property,
+    Name: Hotcat::SalsifyProductsLoader.default_product_name_property,
     Title: 'Complete Label',
     Quality: 'Editorial Quality',
     ReleaseDate: 'Release Date',

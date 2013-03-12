@@ -9,6 +9,10 @@ class Hotcat::SalsifyAttributesWriter
   include Hotcat::SalsifyDocumentWriter
 
 
+  # list of all attribute IDs
+  attr_reader :attributes
+
+
   class << self
     attr_reader :filename
   end
@@ -17,20 +21,21 @@ class Hotcat::SalsifyAttributesWriter
 
   def initialize(filename)
     @filename = filename
+    @attributes = []
   end
 
 
   def write
     attributes = [
       {
-        id: Hotcat::SalsifyProductsWriter.default_product_id_property,
+        id: Hotcat::SalsifyProductsLoader.default_product_id_property,
         roles: {
           products: ["id"],
           accessories: ["target_product_id"]
         }
       },
       {
-        id: Hotcat::SalsifyProductsWriter.default_product_name_property,
+        id: Hotcat::SalsifyProductsLoader.default_product_name_property,
         roles: { products: ["name"] }
       },
       {
@@ -38,6 +43,9 @@ class Hotcat::SalsifyAttributesWriter
         roles: { global: ["accessory_label"] }
       }
     ]
+
+    # make them available
+    attributes.each { |a| @attributes.push(a[:id]) }
 
     # TODO not DRY see category_writer and product_writer
     # we do this here rather than simply outputting the json because the parent

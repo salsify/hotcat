@@ -26,4 +26,5 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency 'railties'
   gem.add_dependency 'nokogiri', '~> 1.5.5'
   gem.add_dependency 'rubyzip', '~> 0.9.9'
+  gem.add_dependency 'aws-sdk', '>= 1.8.1.3'
 end

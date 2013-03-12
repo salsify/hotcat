@@ -8,7 +8,11 @@ module Hotcat
                     :max_products,
                     :max_related_products,
                     :username,
-                    :password
+                    :password,
+                    :use_aws_for_images,
+                    :aws_bucket_id,
+                    :aws_key_id,
+                    :aws_key
     end
 
     def self.defaults

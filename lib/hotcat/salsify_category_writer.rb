@@ -52,11 +52,22 @@ class Hotcat::SalsifyCategoryWriter
     end
 
     output_file = open_output_file(@output_filename)
-    attribute_values.each_with_index do |attribute, index|
-      output_file << ",\n" if index > 0
-      output_file << attribute.to_json
-    end
+    output_file << attribute_values.to_json.force_encoding('utf-8')
     close_output_file(output_file)
+  end
+
+
+  private
+
+
+  # override to prevent writing the wrapping array bracket
+  def start_file(file)
+    # noop
+  end
+
+  # override to prevent writing the wrapping array bracket
+  def end_file(file)
+    # noop
   end
 
 end

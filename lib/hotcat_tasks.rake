@@ -1,5 +1,7 @@
+require 'set'
 require 'uri'
 require 'net/http'
+
 require 'nokogiri'
 require 'active_support/ordered_options'
 
@@ -7,6 +9,7 @@ require "hotcat/error"
 require "hotcat/config"
 require "hotcat/version"
 require "hotcat/icecat"
+require "hotcat/salsify_csv_writer"
 require "hotcat/salsify_document_writer"
 require "hotcat/salsify_index_writer"
 require "hotcat/salsify_attributes_writer"
@@ -16,8 +19,8 @@ require "hotcat/salsify_category_writer"
 require "hotcat/icecat_index_document.rb"
 require "hotcat/icecat_product_document.rb"
 require "hotcat/salsify_products_writer.rb"
+require "hotcat/aws_uploader"
 
-# TODO: task to download the daily update
 
 namespace :hotcat do
 
@@ -33,6 +36,11 @@ namespace :hotcat do
   # ICEcat category ID for digital cameras
   CAMERA_CATEGORY_ICECAT_ID = "575"
 
+  def whitelist_trigger_categories
+    valid_category_ids = category_and_descendants(CAMERA_CATEGORY_ICECAT_ID)
+    valid_category_ids.map { |cid| cid.to_s }
+  end
+
 
   def ensure_directory(path)
     if !File.exist?(path)
@@ -45,7 +53,7 @@ namespace :hotcat do
 
 
   def output_filename(basename)
-    basename << ".gz" unless basename.end_with?(".gz") || basename.end_with?(".zip")
+    basename << ".gz" if basename.end_with?(".json")
     "#{@config.cache_dir}#{SALSIFY_DIR}#{SALSIFY_PREFIX}#{basename}"
   end
 
@@ -60,24 +68,40 @@ namespace :hotcat do
     output_filename(Hotcat::SalsifyAttributesWriter.filename)
   end
 
+  def attributes_list_filename
+    output_filename("attributes_list.txt")
+  end
+
+  def attributes_list_archive_filename
+    output_filename("attributes_list-#{Time.now.to_i}.txt")
+  end
+
   def attribute_values_filename
     output_filename(Hotcat::SalsifyCategoryWriter.filename)
   end
 
-  def products_filename
-    output_filename("products.json.gz")
+  def products_filename_extension(mode)
+    if mode == :json
+      '.json.gz'
+    elsif mode == :csv
+      '.csv'
+    end
   end
 
-  def products_archive_filename
-    output_filename("products-#{Time.now.to_i}.json.gz")
+  def products_filename(mode)
+    output_filename("products#{products_filename_extension(mode)}")
   end
 
-  def accessories_filename
-    output_filename("accessories.json.gz")
+  def products_archive_filename(mode)
+    output_filename("products-#{Time.now.to_i}#{products_filename_extension(mode)}")
   end
 
-  def accessories_archive_filename
-    output_filename("accessories-#{Time.now.to_i}.json.gz")
+  def accessories_filename(mode)
+    output_filename("accessories#{products_filename_extension(mode)}")
+  end
+
+  def accessories_archive_filename(mode)
+    output_filename("accessories-#{Time.now.to_i}#{products_filename_extension(mode)}")
   end
 
   def import_filename
@@ -116,6 +140,37 @@ namespace :hotcat do
       puts "ERROR: #{dir} not a directory. Quitting."
       exit
     end
+
+    if @config.use_aws_for_images
+      if @config.aws_bucket_id.blank?
+        puts "ERROR: if you specify use_aws_for_images a aws_bucket_id must be provided."
+        exit
+      end
+
+      if @config.aws_key_id.blank?
+        puts "ERROR: if you specify use_aws_for_images a aws_key_id must be provided."
+        exit
+      end
+
+      if @config.aws_key.blank?
+        puts "ERROR: if you specify use_aws_for_images a aws_key must be provided."
+        exit
+      end
+
+      dir = @config.cache_dir + 'tmp'
+      if !ensure_directory(dir)
+        puts "ERROR: #{dir} not a directory. Quitting."
+        exit
+      end
+
+      @aws_uploader = Hotcat::AwsUploader.new(@config.aws_key_id,
+                                              @config.aws_key,
+                                              @config.aws_bucket_id,
+                                              dir)
+    end
+
+    @attribute_ids = Set.new
+    @attr_list_file = ENV['attributes']
   end
 
 
@@ -206,8 +261,12 @@ namespace :hotcat do
       puts "WARNING: attributes file already exists. Replacing."
       File.delete(output_file)
     end
-    
-    Hotcat::SalsifyAttributesWriter.new(output_file).write
+
+    converter = Hotcat::SalsifyAttributesWriter.new(output_file)
+    converter.write
+
+    @attribute_ids.merge(converter.attributes)
+
     puts "Done writing attributes file."
   end
 
@@ -400,23 +459,53 @@ namespace :hotcat do
 
   desc "Converts all the products in the products directory into Salsify XML files."
   task :convert_products => ["hotcat:setup"] do
+    convert_products_to_salsify(:json)
+  end
+
+  desc "Generates a Salsify CSV import."
+  task :generate_salsify_csv_import => ["hotcat:setup","hotcat:load_suppliers","hotcat:load_categories"] do
+    if @attr_list_file.blank? || !File.exists?(@attr_list_file)
+      raise Hotcat::SalsifyWriterError, "Require an attributes file for CSV writing."
+    end
+
+    @attributes_list = []
+    File.open(@attr_list_file, 'r') do |f|
+      f.each_line { |a| @attributes_list.push(a.strip) unless a.blank? }
+    end
+
+    puts "Read in attributes list from #{@attr_list_file}. #{@attributes_list.length} columns loaded."
+    convert_products_to_salsify(:csv)
+  end
+
+  def convert_products_to_salsify(mode)
     products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
 
-    products_file = products_filename
-    archive_file_if_needed(products_file, products_archive_filename)
+    products_file = products_filename(mode)
+    archive_file_if_needed(products_file, products_archive_filename(mode))
 
-    puts "Converting all products found in files in directory #{products_directory}."
+    puts "Converting at most #{@config.max_products} trigger products found in files in directory #{products_directory}."
     puts "Storing products in #{products_file}"
     puts "Storing relations (max #{@config.max_related_products} per product)"
 
-    # FIXME this is not respecting the source category
-
-    converter = Hotcat::SalsifyProductsWriter.new(products_directory,
-                                                  nil,
-                                                  products_file,
-                                                  @config.max_products,
-                                                  @config.max_related_products)
+    products_writer_settings = {
+      source_directory: products_directory,
+      output_file: products_file,
+      category_whitelist: whitelist_trigger_categories,
+      max_products: @config.max_products,
+      max_related_products: @config.max_related_products,
+      aws_uploader: @aws_uploader
+    }
+    if mode == :json
+      converter = Hotcat::SalsifyProductsWriter.new(products_writer_settings)
+    elsif mode == :csv
+      products_writer_settings[:categories] = @categories
+      products_writer_settings[:attributes_list] = @attributes_list
+      converter = Hotcat::SalsifyCsvWriter.new(products_writer_settings)
+    end
     converter.convert
+    if mode == :json
+      @attribute_ids.merge(converter.attributes)
+    end
 
     puts "Done writing documents. Ensuring that related product documents are loaded."
     files = []
@@ -432,38 +521,70 @@ namespace :hotcat do
       files.push(filename)
     end
 
-    related_products_filename = accessories_filename
-    archive_file_if_needed(related_products_filename, accessories_archive_filename)
+    related_products_filename = accessories_filename(mode)
+    archive_file_if_needed(related_products_filename, accessories_archive_filename(mode))
 
     puts "Converting the necessary related products."
-    converter = Hotcat::SalsifyProductsWriter.new(products_directory,
-                                                  files,
-                                                  related_products_filename,
-                                                  0,
-                                                  0)
+
+    accessory_writer_settings = {
+      source_directory: products_directory,
+      files_whitelist: files,
+      output_file: related_products_filename,
+      aws_uploader: @aws_uploader
+    }
+    if mode == :json
+      converter = Hotcat::SalsifyProductsWriter.new(accessory_writer_settings)
+    elsif mode == :csv
+      accessory_writer_settings[:categories] = @categories
+      accessory_writer_settings[:attributes_list] = @attributes_list
+      converter = Hotcat::SalsifyCsvWriter.new(accessory_writer_settings)
+    end
     converter.convert
 
+    if mode == :json
+      @attribute_ids.merge(converter.attributes)
+      merge_product_json_files(products_file, related_products_filename)
+    elsif mode == :csv
+      puts "merging CSV files"
+      merge_product_csv_files(products_file, related_products_filename)
+    end
+
+    puts "Done converting products and related products."
+  end
+
+  def merge_product_json_files(products_file, related_products_filename)
     # At this point we have 2 documents which are long lists of products, but
     # to be consumed by Salsify they have to be combined into one until Salsify
     # can handle multiple product import documents coming from a single source.
-    # TODO remove when Salsify can handle multiple import product documents
     tmp_filename = File.join(File.dirname(products_file), "#{Time.now.to_i}-#{File.extname(products_file)}")
-    output_file = File.new(tmp_filename, 'wb')
-    begin
+    File.open(tmp_filename, 'wb') do |output_file|
       output_file = Zlib::GzipWriter.new(output_file) if tmp_filename.end_with?(".gz")
       output_file << "[\n"
       copy_file_contents(output_file, products_file)
       output_file << "\n,\n"
       copy_file_contents(output_file, related_products_filename)
       output_file << "\n]"
-    ensure
-      output_file.close
     end
     File.delete(products_file)
     File.delete(related_products_filename)
     File.rename(tmp_filename, products_file)
+  end
 
-    puts "Done converting products and related products."
+  def merge_product_csv_files(products_file, related_products_filename)
+    tmp_filename = File.join(File.dirname(products_file), "#{Time.now.to_i}-#{File.extname(products_file)}")
+    File.open(tmp_filename, 'wb') do |file|
+      File.open(products_file, 'rb').each do |line|
+        next if line.blank?
+        file << line.strip << "\n"
+      end
+      File.open(related_products_filename, 'rb').each_with_index do |line, index|
+        next if index == 0 || line.blank?
+        file << line.strip << "\n"
+      end
+    end
+    File.delete(products_file)
+    File.delete(related_products_filename)
+    File.rename(tmp_filename, products_file)
   end
 
   def copy_file_contents(output_stream, input_file)
@@ -493,10 +614,22 @@ namespace :hotcat do
       import_file,
       attributes_filename,
       attribute_values_filename,
-      products_filename
+      products_filename(:json)
     ).write
-
     puts "Done creating import document: #{import_file}"
+
+    puts "Writing out all attributes seen into list file."
+    write_attributes_list_file
+    puts "Done."
+  end
+
+
+  def write_attributes_list_file
+    attributes_list_file = attributes_list_filename
+    archive_file_if_needed(attributes_list_file, attributes_list_archive_filename)
+    File.open(attributes_list_file, 'w') do |f|
+      @attribute_ids.each { |aid| f << aid << "\n" }
+    end
   end
 
 end
