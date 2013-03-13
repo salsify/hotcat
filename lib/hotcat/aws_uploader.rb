@@ -29,7 +29,8 @@ class Hotcat::AwsUploader
       obj.acl = :public_read
       File.delete(tmpfile)
     else
-      puts "  Cached ICEcat image already in AWS for #{product_id}"
+      # Gets chatty when dealing with thousands of products...
+      # puts "  Cached ICEcat image already in AWS for #{product_id}"
     end
 
     obj.public_url

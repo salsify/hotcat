@@ -1,4 +1,5 @@
 require 'nokogiri'
+require 'htmlentities'
 
 require 'hotcat/icecat'
 require 'hotcat/salsify_products_writer'
@@ -105,7 +106,7 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
         # in our extract however we're dealing with English only for the present...
         name = nil
         attributes.each { |a| name = a[1] if a[0] == 'Value' }
-        @product[:properties][name] = @product_feature_value if name
+        @product[:properties][name] = clean_value(@product_feature_value) if name
       end
     end
   end
@@ -138,5 +139,15 @@ class Hotcat::ProductDocument < Nokogiri::XML::SAX::Document
       @in_product_feature = false
 
     end
+  end
+
+
+  private
+
+
+  # TODO not DRY see icecat_category_document
+  def clean_value(value)
+    @coder ||= HTMLEntities.new
+    @coder.decode(value.to_s.strip)
   end
 end

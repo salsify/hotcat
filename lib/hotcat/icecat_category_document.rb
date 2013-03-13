@@ -1,4 +1,5 @@
 require 'nokogiri'
+require 'htmlentities'
 
 require 'hotcat/icecat'
 
@@ -59,6 +60,7 @@ class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
       end
 
       if !value.nil? && !value.empty?
+        value = clean_value(value)
         if langid == Hotcat::Icecat.english_language_id
           @name = value
         elsif langid == Hotcat::Icecat.fallback_language_id && @name.nil?
@@ -89,5 +91,14 @@ class Hotcat::CategoryDocument < Nokogiri::XML::SAX::Document
       end
       init_values
     end
+  end
+
+
+  private
+
+
+  def clean_value(value)
+    @coder ||= HTMLEntities.new
+    @coder.decode(value.to_s.strip)
   end
 end

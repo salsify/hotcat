@@ -1,4 +1,11 @@
+require 'set'
+
 # Loads Salsify products from the Salsify directory.
+#
+# The basic idea is that it will look at all product XML files in the Hotcat
+# cache directory and attempt to load them. Files or products may be skipped
+# by specification (by providing black/whitelists of IDs or files, or by
+# restricting the category of files to be loaded).
 #
 # This class should be overridden by a class implementing a specific document
 # writing format.
@@ -8,23 +15,52 @@ class Hotcat::SalsifyProductsLoader
     attr_reader :default_product_id_property, :default_product_name_property
   end
   @default_product_id_property = "sku"
-  @default_product_name_property = "ProductName"
+  @default_product_name_property = "Name"
 
 
-  # relaed_products_ids_suppliers: the list of related products to download.
-  attr_reader :product_ids_loaded, :related_product_ids_suppliers
+  # list of all files that were involved successfully in this load
+  attr_reader :product_files_succeeded
+
+  # list of product files that contained incorrect product data (usually because
+  # the file is an XML document saying that we don't have permission to see the
+  # product).
+  attr_reader :product_files_failed
+
+  # the list of related products for the products that were successfully loaded.
+  # as implied, it is a hash mapping a related product ID to it suppliers
+  attr_reader :related_product_ids_suppliers
+
+  # set of product ids that has been successfully loaded
+  attr_reader :product_ids_loaded
+
+  # category IDs seen during this load
+  attr_reader :category_ids_loaded
+
+  # maps product id to category id for all loaded products
+  attr_reader :product_category_mapping
+
+  # list of all attributes that were loaded as part of this run
+  attr_reader :attribute_ids_loaded
 
 
   def initialize(options)
     options = {
+      skip_output: false,
+      skip_digital_assets: false,
       max_products: 0,
-      max_related_products: 0
+      max_related_products: 0,
+      product_category_mapping: Hash.new
     }.merge(options)
 
+    # whether or not to skip the actual writing step. if true, this will do all
+    # the parsing, etc. but won't load anything.
+    @skip_output = options[:skip_output]
+
+    # whether to skip digital asset loading
+    @skip_digital_assets = options[:skip_digital_assets]
+
     # source directory from which to load ICEcat product data
-    source_directory = options[:source_directory]
-    source_directory << File.SEPARATOR unless source_directory.ends_with?(File::SEPARATOR)
-    @source_directory = source_directory
+    @source_directory = options[:source_directory]
 
     # Whitelist of files in the given directory. Elements in the array should be
     # complete paths to the whitelist of files. If not present all files in the
@@ -47,16 +83,26 @@ class Hotcat::SalsifyProductsLoader
     # there
     @aws_uploader = options[:aws_uploader]
 
-    # cache of all product IDs loaded
-    @product_ids_loaded = []
-    @related_product_ids_suppliers = {}
+    # list of files to skip
+    @product_files_blacklist = options[:product_files_blacklist]
+
+    # if the ID is not in this list, it will not get loaded
+    @product_id_whitelist = options[:product_id_whitelist]
+
+    @product_files_succeeded = Set.new
+    @product_files_failed = Set.new
+    @related_product_ids_suppliers = Hash.new
+    @product_ids_loaded = Set.new
+    @category_ids_loaded = Set.new
+    @product_category_mapping = options[:product_category_mapping]
+    @attribute_ids_loaded = Set.new
 
     options
   end
 
 
   def convert
-   @products_output_file = open_output_file(output_filename)
+    @products_output_file = open_output_file(output_filename) unless skip_output
 
     @successfully_converted = 0
     # sorted to use the same products every time to having to load new
@@ -65,39 +111,58 @@ class Hotcat::SalsifyProductsLoader
       next if filename.start_with?(".")
       file = File.join(@source_directory, filename)
       next unless @files.blank? || @files.include?(file)
+      next if @product_files_blacklist.present? && @product_files_blacklist.include?(file)
 
       begin
         product = load_product(file)
+        if product.nil? || !process_product?(product)
+          @product_files_failed.add(file)
+          next
+        end
+        @product_files_succeeded.add(file)
       rescue Exception => e
-        # don't let a single error derail the entire project...
-        puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        # don't let a single error derail the entire conversion, which could be
+        # several hours.
+        puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         puts "ERROR: Exception encountered when loading from #{filename}"
         puts e.inspect
         print e.backtrace.join("\n")
-        puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        product = nil
+        puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        next
       end
 
-      if process_product?(product)
-        id = convert_product(product)
-        @product_ids_loaded.push(id)
-        @successfully_converted += 1
-      else
-        puts "WARNING: could not load product from file: #{filename}"
+      id = convert_product(product)
+      @product_ids_loaded.add(id)
+      if product[:category].present?
+        @category_ids_loaded.add(product[:category])
+        @product_category_mapping[id] = product[:category]
       end
+      @successfully_converted += 1
+
+      # cute progress meter to let you know what's happening
+      print "." if @successfully_converted % 10 == 0
+      puts  " #{@successfully_converted} successfully converted so far" if @successfully_converted % 100 == 0
 
       break if @max_products > 0 && @successfully_converted >= @max_products
     end
 
-    close_output_file(@products_output_file)
+    close_output_file(@products_output_file) unless skip_output
 
-    # Probably a faster way to do this, but who cares?
-    @product_ids_loaded.each { |id| @related_product_ids_suppliers.delete(id) }
+    # we may have already loaded some of the products from the accessor list, in
+    # which case we do not have to list them for future processing.
+    @related_product_ids_suppliers.delete_if do |id,supplier|
+      @product_ids_loaded.include?(id)
+    end
     @product_ids_loaded
   end
 
 
   private
+
+
+  def skip_output
+    @skip_output
+  end
 
 
   def open_output_file
@@ -138,9 +203,13 @@ class Hotcat::SalsifyProductsLoader
 
     # ICEcat returned a document that itself has an error. Most likely that we
     # don't have the rights to download the given product.
-    return nil if product_document.code == "-1"
+    product = product_document.product if product_document.code != "-1"
 
-    product_document.product
+    if product.blank? || product.keys.empty? || product[:properties].empty?
+      nil
+    else
+      product
+    end
   end
 
 
@@ -156,7 +225,11 @@ class Hotcat::SalsifyProductsLoader
 
   # return whether to bother processing the product we just parsed
   def process_product?(product)
-    return false if product.nil? || product.keys.empty? || product[:properties].empty?
+    id = product_id(product)
+    return false if id.blank? ||
+                    @product_ids_loaded.include?(id)
+
+    return false if @product_id_whitelist.present? && !@product_id_whitelist.include?(id)
 
     return @category_whitelist.blank? ||
            (product[:category].present? && @category_whitelist.include?(product[:category].to_s))
@@ -165,14 +238,17 @@ class Hotcat::SalsifyProductsLoader
 
   # returns list of accessory IDs
   def get_accessory_ids(product)
-    return nil if product[:related_product_ids_suppliers].empty?
+    return nil if @max_related_products == 0 ||
+                  product[:related_product_ids_suppliers].empty?
 
-    accessory_ids = []
+    accessory_ids = Set.new
 
     # sorting here to prevent, as much as possible having to download new
     # documents every single time.
     product[:related_product_ids_suppliers].keys.sort.each do |id|
-      accessory_ids.push(id)
+      next if @product_id_whitelist.present? && !@product_id_whitelist.include?(id)
+
+      accessory_ids.add(id)
       supplier = product[:related_product_ids_suppliers][id]
       @related_product_ids_suppliers[id] = supplier if @related_product_ids_suppliers[id].blank?
 
@@ -184,7 +260,7 @@ class Hotcat::SalsifyProductsLoader
 
 
   def get_image_url(product)
-    return nil if product[:image_url].blank?
+    return nil if @skip_digital_assets || product[:image_url].blank?
     url = product[:image_url].strip
     url = @aws_uploader.upload(product_id(product), url) if @aws_uploader.present?
     url
@@ -194,7 +270,13 @@ class Hotcat::SalsifyProductsLoader
   def convert_product(product)
     product[:accessory_ids] = get_accessory_ids(product)
     product[:image_url] = get_image_url(product)
-    write_product(product)
+
+    product[:properties].keys.each do |key|
+      @attribute_ids_loaded.add(key.to_s.strip)
+    end
+
+    write_product(product) unless skip_output
+
     product_id(product)
   end
 

@@ -1,26 +1,10 @@
-# encoding: utf-8
-
-require 'set'
-
 require 'hotcat/salsify_document_writer'
 require 'hotcat/salsify_products_loader'
 require 'hotcat/salsify_category_writer'
 
-
-# Writes out a Salsify category document.
+# Writes out a Salsify product JSON document.
 class Hotcat::SalsifyProductsWriter < Hotcat::SalsifyProductsLoader
   include Hotcat::SalsifyDocumentWriter
-
-
-  attr_reader :attributes
-
-
-  def initialize(options)
-    super(options)
-
-    # contains the list of all attribute IDs seen during import
-    @attributes = Set.new
-  end
 
 
   private
@@ -45,7 +29,6 @@ class Hotcat::SalsifyProductsWriter < Hotcat::SalsifyProductsLoader
     product[:properties].each_pair do |k,v|
       # this is to ensure that extra newlines are not present in the output
       k = k.strip if k.is_a?(String)
-      @attributes.add(k.to_s)
       product_json[k] = v.is_a?(String) ? v.strip : v
     end
     product_json[Hotcat::SalsifyCategoryWriter.default_root_category] = product[:category]
@@ -59,7 +42,7 @@ class Hotcat::SalsifyProductsWriter < Hotcat::SalsifyProductsLoader
       end
     end
 
-    unless product[:image_url].blank?
+    if product[:image_url].present?
       product_json[:digital_assets] = [
         {
           url: product[:image_url],

@@ -169,8 +169,20 @@ namespace :hotcat do
                                               dir)
     end
 
+    # keeps track of all attribute IDs seen throughout the import
     @attribute_ids = Set.new
+
+    # if provided, this is a whitelist of attribute IDs to use when generating
+    # CSV output
     @attr_list_file = ENV['attributes']
+
+    @load_images = ENV["load_images"]
+    if @load_images.present? && @load_images != 'true'
+      puts "No images will be loaded."
+      @load_images = false
+    else
+      @load_images = true
+    end
   end
 
 
@@ -464,92 +476,184 @@ namespace :hotcat do
 
   desc "Generates a Salsify CSV import."
   task :generate_salsify_csv_import => ["hotcat:setup","hotcat:load_suppliers","hotcat:load_categories"] do
-    if @attr_list_file.blank? || !File.exists?(@attr_list_file)
-      raise Hotcat::SalsifyWriterError, "Require an attributes file for CSV writing."
+    if @attr_list_file.present?
+      if !File.exists?(@attr_list_file)
+        raise Hotcat::SalsifyWriterError, "Specified attribute list file does not exist: #{@attr_list_file}"
+      end
+      @attributes_whitelist = []
+      File.open(@attr_list_file, 'r') do |f|
+        f.each_line { |a| @attributes_whitelist.push(a.strip) unless a.blank? }
+      end
+      puts "Read in attributes whitelist from #{@attr_list_file}. #{@attributes_whitelist.length} columns loaded."
     end
 
-    @attributes_list = []
-    File.open(@attr_list_file, 'r') do |f|
-      f.each_line { |a| @attributes_list.push(a.strip) unless a.blank? }
-    end
+    puts "Performing dry run to get enough information to build the CSV..."
+    load_info = convert_products_to_salsify(:csv, true)
 
-    puts "Read in attributes list from #{@attr_list_file}. #{@attributes_list.length} columns loaded."
-    convert_products_to_salsify(:csv)
+    puts "Done performing dry run. Now doing actual conversion..."
+    load_info = convert_products_to_salsify(:csv, false, load_info)
+
+    puts "Done."
   end
 
-  def convert_products_to_salsify(mode)
+
+  # a load_info keeps track of load information, such as failed files,
+  # successfully loaded product IDs, etc.
+  def update_load_info(load_info, converter, product_type)
+    load_info ||= {
+      good_product_ids: Set.new,
+      failed_files: Set.new,
+      accessory_category_ids: Set.new,
+      product_category_mapping: Hash.new
+    }
+
+    load_info[:failed_files].merge(converter.product_files_failed)
+    load_info[:good_product_ids].merge(converter.product_ids_loaded)
+    load_info[:product_category_mapping].merge(converter.product_category_mapping)
+
+    if product_type == :trigger
+      load_info[:trigger_files] = converter.product_files_succeeded
+      load_info[:accessory_product_ids] = converter.related_product_ids_suppliers.keys
+    elsif product_type == :target
+      load_info[:target_files] = converter.product_files_succeeded
+      load_info[:accessory_category_ids].merge(converter.category_ids_loaded)
+    end
+
+    @attribute_ids.merge(converter.attribute_ids_loaded)
+
+    load_info
+  end
+
+  def convert_products_to_salsify(mode, dryrun = false, load_info = nil)
     products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
+    puts "Processing at most #{@config.max_products} trigger products found in files in directory #{products_directory}."
 
-    products_file = products_filename(mode)
-    archive_file_if_needed(products_file, products_archive_filename(mode))
+    skip_digital_assets = dryrun || !@load_images
 
-    puts "Converting at most #{@config.max_products} trigger products found in files in directory #{products_directory}."
-    puts "Storing products in #{products_file}"
-    puts "Storing relations (max #{@config.max_related_products} per product)"
+    unless dryrun
+      products_file = products_filename(mode)
+      puts "Storing products in #{products_file}"
+      archive_file_if_needed(products_file, products_archive_filename(mode))
+
+      attr_whitelist = @attribute_ids
+      if @attributes_whitelist.present?
+        attr_whitelist = attr_whitelist & @attributes_whitelist
+      end
+    end
 
     products_writer_settings = {
+      skip_output: dryrun,
+      skip_digital_assets: skip_digital_assets,
       source_directory: products_directory,
       output_file: products_file,
+      categories: @categories,
       category_whitelist: whitelist_trigger_categories,
       max_products: @config.max_products,
       max_related_products: @config.max_related_products,
       aws_uploader: @aws_uploader
     }
+    if load_info.present?
+      # already been through once
+      products_writer_settings.merge!({
+        files_whitelist: load_info[:trigger_files],
+        product_files_blacklist: load_info[:failed_files],
+        product_id_whitelist: load_info[:good_product_ids],
+        product_category_mapping: load_info[:product_category_mapping]
+      })
+    end
     if mode == :json
       converter = Hotcat::SalsifyProductsWriter.new(products_writer_settings)
     elsif mode == :csv
-      products_writer_settings[:categories] = @categories
-      products_writer_settings[:attributes_list] = @attributes_list
+      unless dryrun
+        products_writer_settings.merge!({
+          accessory_category_ids: load_info[:accessory_category_ids],
+          attributes_list: attr_whitelist  
+        })
+      end
       converter = Hotcat::SalsifyCsvWriter.new(products_writer_settings)
     end
     converter.convert
-    if mode == :json
-      @attribute_ids.merge(converter.attributes)
-    end
+    load_info = update_load_info(load_info, converter, :trigger)
 
-    puts "Done writing documents. Ensuring that related product documents are loaded."
-    files = []
-    converter.related_product_ids_suppliers.each_pair do |id, supplier|
-      filename = product_file_name(id)
-      unless File.exists?(filename)
+
+    if load_info[:target_files].present?
+      files = load_info[:target_files]
+    else
+      "Ensuring that related product documents are downloaded."
+      files = []
+      converter.related_product_ids_suppliers.each_pair do |id, supplier|
         filename = product_file_name(id)
-        uri = product_icecat_query_uri(id, supplier)
-        unless download_to_local(uri, filename, true, true, indent = '  ')
-          puts "  WARNING: could not download to local file for product #{id}"
+        unless File.exists?(filename)
+          filename = product_file_name(id)
+          uri = product_icecat_query_uri(id, supplier)
+          if !download_to_local(uri, filename, true, true, indent = '  ')
+            load_info[:good_product_ids].delete(id)
+            next
+          end
         end
+        files.push(filename)
       end
-      files.push(filename)
     end
 
-    related_products_filename = accessories_filename(mode)
-    archive_file_if_needed(related_products_filename, accessories_archive_filename(mode))
 
-    puts "Converting the necessary related products."
+    puts "Processing the related products files..."
+    puts "Storing relations (max #{@config.max_related_products} per trigger product)"
+
+    unless dryrun
+      related_products_filename = accessories_filename(mode)
+      archive_file_if_needed(related_products_filename, accessories_archive_filename(mode))
+    end
 
     accessory_writer_settings = {
+      skip_output: dryrun,
+      skip_digital_assets: skip_digital_assets,
       source_directory: products_directory,
       files_whitelist: files,
       output_file: related_products_filename,
-      aws_uploader: @aws_uploader
+      categories: @categories,
+      max_products: -1,
+      max_related_products: 0,
+      aws_uploader: @aws_uploader,
+      product_files_blacklist: load_info[:failed_files]
     }
+    accessory_writer_settings[:product_files_blacklist] = load_info[:failed_files]
+    accessory_writer_settings[:product_category_mapping] = load_info[:product_category_mapping]
     if mode == :json
       converter = Hotcat::SalsifyProductsWriter.new(accessory_writer_settings)
     elsif mode == :csv
-      accessory_writer_settings[:categories] = @categories
-      accessory_writer_settings[:attributes_list] = @attributes_list
+      unless dryrun
+        # this isn't required for json since we're only doing one run through
+        # the system to generate the json document
+
+        accessory_writer_settings.merge!({
+          product_id_whitelist: load_info[:accessory_product_ids],
+          accessory_category_ids: load_info[:accessory_category_ids],
+          attributes_list: attr_whitelist
+        })
+      end
       converter = Hotcat::SalsifyCsvWriter.new(accessory_writer_settings)
     end
     converter.convert
+    load_info = update_load_info(load_info, converter, :target)
 
+
+    merge_product_files(mode, products_file, related_products_filename) unless dryrun
+    puts "Done converting products and related products."
+
+    puts "Writing out all attributes seen into list file."
+    write_attributes_list_file unless dryrun
+
+    load_info
+  end
+
+
+  def merge_product_files(mode, products_file, related_products_filename)
     if mode == :json
-      @attribute_ids.merge(converter.attributes)
       merge_product_json_files(products_file, related_products_filename)
     elsif mode == :csv
       puts "merging CSV files"
       merge_product_csv_files(products_file, related_products_filename)
     end
-
-    puts "Done converting products and related products."
   end
 
   def merge_product_json_files(products_file, related_products_filename)
@@ -618,8 +722,6 @@ namespace :hotcat do
     ).write
     puts "Done creating import document: #{import_file}"
 
-    puts "Writing out all attributes seen into list file."
-    write_attributes_list_file
     puts "Done."
   end
 

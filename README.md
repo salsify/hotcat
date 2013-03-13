@@ -80,17 +80,25 @@ If the salsify-import.zip file exists when the rake task is run, it will be move
 
 #### Generating Salsify CSV Import Documents
 
-Generating CSV documents is a 2-step process, as the generation of a CSV document depends on knowing the column order ahead of time, which we don't know until we look at some files.
+This is a simple process.
 
-First, generate a JSON export. As part of this process the JSON export will produce a file called `salsify-attributes_list.txt` in the `/path/to/cache/salsify/` directory. This is the list of all product attributes seen during the production of the Salsify JSON file.
+```bash
+rake hotcat:generate_salsify_csv_import
+```
 
-Now that you've generated the list, you can generate a CSV export:
+This will generate a single CSV file that contains both products and accessories for the import.
+
+As part of this process Hotcat will produce a file called `salsify-attributes_list.txt` in the `/path/to/cache/salsify/` directory. This is the list of all product attributes seen during the conversion. The reason to keep this around is that you may want to re-run the conversion and produce a CSV with fewer columns. Edit this file, and re-run as follows:
 
 ```bash
 rake hotcat:generate_salsify_csv_import attributes=/path/to/cache/salsify/salsify-attributes_list.txt
 ```
 
-This will generate a single CSV file that contains both products and accessories for the import.
+If you're going to be iterating in this way, you may not want to bother dealing with the image URLs the first time around:
+
+```bash
+rake hotcat:generate_salsify_csv_import load_images=false
+```
 
 #### Other Tasks
 
