@@ -1,4 +1,7 @@
 require 'set'
+require 'find'
+
+require 'hotcat/cache_manager'
 
 # Loads Salsify products from the Salsify directory.
 #
@@ -59,9 +62,6 @@ class Hotcat::SalsifyProductsLoader
     # whether to skip digital asset loading
     @skip_digital_assets = options[:skip_digital_assets]
 
-    # source directory from which to load ICEcat product data
-    @source_directory = options[:source_directory]
-
     # Whitelist of files in the given directory. Elements in the array should be
     # complete paths to the whitelist of files. If not present all files in the
     # source directory will be loaded.
@@ -97,28 +97,42 @@ class Hotcat::SalsifyProductsLoader
     @product_category_mapping = options[:product_category_mapping]
     @attribute_ids_loaded = Set.new
 
+    @cache = Hotcat::CacheManager.instance
+
     options
   end
 
 
   def convert
-    @products_output_file = open_output_file(output_filename) unless skip_output
+    if @category_whitelist.present?
+      directories = @category_whitelist.map do |category_id|
+        @cache.product_files_directory_for_category(category_id)
+      end
+    else
+      directories = [@cache.product_files_directory]
+    end
 
-    @successfully_converted = 0
-    # sorted to use the same products every time to having to load new
-    # accessory files each run.
-    Dir.entries(@source_directory).sort.each_with_index do |filename|
-      next if filename.start_with?(".")
-      file = File.join(@source_directory, filename)
+    files_to_process = []
+    Find.find(*directories) do |file|
+      next if File.directory?(filename)
       next unless @files.blank? || @files.include?(file)
       next if @product_files_blacklist.present? && @product_files_blacklist.include?(file)
+      files_to_process.push(file)
+    end
 
+    @products_output_file = open_output_file(output_filename) unless skip_output
+    @successfully_converted = 0
+
+    # sorted to use the same products every time to having to load new
+    # accessory files each run.
+    files_to_process.sort.each do |file|
       begin
-        product = load_product(file)
-        if product.nil? || !process_product?(product)
+        product = Hotcat::SalsifyProductsLoader.load_product(file)
+        if product.nil?
           @product_files_failed.add(file)
           next
         end
+        next if !process_product?(product)
         @product_files_succeeded.add(file)
       rescue Exception => e
         # don't let a single error derail the entire conversion, which could be
@@ -141,7 +155,10 @@ class Hotcat::SalsifyProductsLoader
 
       # cute progress meter to let you know what's happening
       print "." if @successfully_converted % 10 == 0
-      puts  " #{@successfully_converted} successfully converted so far" if @successfully_converted % 100 == 0
+     if @successfully_converted % 100 == 0
+        print  " #{@successfully_converted} successfully converted so far."
+        puts   " #{@product_files_failed.length} bogus files passed."
+      end
 
       break if @max_products > 0 && @successfully_converted >= @max_products
     end
@@ -154,6 +171,29 @@ class Hotcat::SalsifyProductsLoader
       @product_ids_loaded.include?(id)
     end
     @product_ids_loaded
+  end
+
+
+  # parses the given ICEcat product document and returns the product loaded.
+  # returns nil if there is any error (such as a bogus document).
+  def self.load_product(filename)
+    product_document = Hotcat::ProductDocument.new
+    parser = Nokogiri::XML::SAX::Parser.new(product_document)
+    if filename.end_with?(".gz")
+      parser.parse(Zlib::GzipReader.open(filename))
+    else
+      parser.parse(File.open(filename))
+    end
+
+    # ICEcat returned a document that itself has an error. Most likely that we
+    # don't have the rights to download the given product.
+    product = product_document.product if product_document.code != "-1"
+
+    if product.blank? || product.keys.empty? || product[:properties].empty?
+      nil
+    else
+      product
+    end
   end
 
 
@@ -187,29 +227,6 @@ class Hotcat::SalsifyProductsLoader
 
   def successfully_converted
     @successfully_converted
-  end
-
-
-  # parses the given ICEcat product document and returns the product loaded.
-  # returns nil if there is any error (such as a bogus document).
-  def load_product(filename)
-    product_document = Hotcat::ProductDocument.new
-    parser = Nokogiri::XML::SAX::Parser.new(product_document)
-    if filename.end_with?(".gz")
-      parser.parse(Zlib::GzipReader.open(filename))
-    else
-      parser.parse(File.open(filename))
-    end
-
-    # ICEcat returned a document that itself has an error. Most likely that we
-    # don't have the rights to download the given product.
-    product = product_document.product if product_document.code != "-1"
-
-    if product.blank? || product.keys.empty? || product[:properties].empty?
-      nil
-    else
-      product
-    end
   end
 
 

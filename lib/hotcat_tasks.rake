@@ -8,6 +8,7 @@ require 'active_support/ordered_options'
 require "hotcat/error"
 require "hotcat/config"
 require "hotcat/version"
+require "hotcat/cache_manager"
 require "hotcat/icecat"
 require "hotcat/salsify_csv_writer"
 require "hotcat/salsify_document_writer"
@@ -22,16 +23,19 @@ require "hotcat/salsify_products_writer.rb"
 require "hotcat/aws_uploader"
 
 
+# TODO factor out the job running into its own class. This is getting silly.
+#      in particular CacheManager feels like a very strong candidate for a
+#      separable concern which would clean this up remarkably.
+
+# TODO be smarter about when we build the product cache. We should possibly
+#      organize them by category into subdirectories, as this would make it
+#      far faster to load csvs.
+
+
 namespace :hotcat do
 
-  # subdirectories in the local cache for various pieces of the ICEcat data
-  REFS_DIR = "refs#{File::SEPARATOR}"
-  INDEX_DIR = "indexes#{File::SEPARATOR}"
-  PRODUCTS_DIRECTORY = "product_cache#{File::SEPARATOR}"
-
+  # FIXME is this really required?
   SALSIFY_PREFIX = "salsify-"
-  SALSIFY_DIR = "salsify#{File::SEPARATOR}"
-
 
   # ICEcat category ID for digital cameras
   CAMERA_CATEGORY_ICECAT_ID = "575"
@@ -42,19 +46,9 @@ namespace :hotcat do
   end
 
 
-  def ensure_directory(path)
-    if !File.exist?(path)
-      return FileUtils.makedirs(path)
-    elsif !File.directory?(path)
-      return false
-    end
-    true
-  end
-
-
   def output_filename(basename)
     basename << ".gz" if basename.end_with?(".json")
-    "#{@config.cache_dir}#{SALSIFY_DIR}#{SALSIFY_PREFIX}#{basename}"
+    File.join(@cache.generated_files_directory, "#{SALSIFY_PREFIX}#{basename}")
   end
 
   def archive_file_if_needed(filename, archive_filename)
@@ -117,29 +111,7 @@ namespace :hotcat do
   task :setup => [:environment] do
     @config = Hotcat::Configuration
 
-    dir = @config.cache_dir + REFS_DIR
-    if !ensure_directory(dir)
-      puts "ERROR: #{dir} not a directory. Quitting."
-      exit
-    end
-
-    dir = @config.cache_dir + INDEX_DIR
-    if !ensure_directory(dir)
-      puts "ERROR: #{dir} not a directory. Quitting."
-      exit
-    end
-
-    dir = @config.cache_dir + PRODUCTS_DIRECTORY
-    if !ensure_directory(dir)
-      puts "ERROR: #{dir} not a directory. Quitting."
-      exit
-    end
-
-    dir = @config.cache_dir + SALSIFY_DIR
-    if !ensure_directory(dir)
-      puts "ERROR: #{dir} not a directory. Quitting."
-      exit
-    end
+    @cache = Hotcat::CacheManager.configure(@config.cache_dir)
 
     if @config.use_aws_for_images
       if @config.aws_bucket_id.blank?
@@ -157,16 +129,10 @@ namespace :hotcat do
         exit
       end
 
-      dir = @config.cache_dir + 'tmp'
-      if !ensure_directory(dir)
-        puts "ERROR: #{dir} not a directory. Quitting."
-        exit
-      end
-
       @aws_uploader = Hotcat::AwsUploader.new(@config.aws_key_id,
                                               @config.aws_key,
                                               @config.aws_bucket_id,
-                                              dir)
+                                              @cache.tmp_directory)
     end
 
     # keeps track of all attribute IDs seen throughout the import
@@ -238,7 +204,7 @@ namespace :hotcat do
 
 
   def load_supplier_hash()
-    file = "#{@config.cache_dir}#{REFS_DIR}#{Hotcat::SupplierDocument.filename}"
+    file = File.join(@cache.reference_files_directory, Hotcat::SupplierDocument.filename)
     unless File.exists?(file)
       puts "Suppliers XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::SupplierDocument.filename}")
@@ -284,7 +250,7 @@ namespace :hotcat do
 
 
   def load_categories_hash()
-    file = "#{@config.cache_dir}#{REFS_DIR}#{Hotcat::CategoryDocument.filename}"
+    file = File.join(@config.reference_files_directory, Hotcat::CategoryDocument.filename)
     unless File.exists?(file)
       puts "Categories XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::CategoryDocument.filename}")
@@ -309,7 +275,7 @@ namespace :hotcat do
 
     load_categories_hash
 
-    puts "********************************************************************************************************"
+    puts "*********************************************************************"
     puts "Done loading categories."
     puts "#{@categories.keys.length} categories loaded."
     puts "Total job time in seconds: #{Time.now - start_time}"
@@ -333,7 +299,7 @@ namespace :hotcat do
       Hotcat::SalsifyCategoryWriter.new(@categories, output_file).write
     end
 
-    puts "********************************************************************************************************"
+    puts "*********************************************************************"
     puts "Done printing out Salsify category document."
     puts "Total job time in seconds: #{Time.now - start_time}"
   end
@@ -370,7 +336,6 @@ namespace :hotcat do
   end
 
 
-
   # Uses the ICEcat query interface instead. There is also a URL path that can
   # be used, but from the index documents we don't get that. We only get the ID
   # and a supplier ID, which requires the query interface.
@@ -381,26 +346,6 @@ namespace :hotcat do
     encoded_id = URI.encode_www_form_component(product_id)
     encoded_supplier = URI.encode_www_form_component(supplier_name.downcase)
     URI("http://data.icecat.biz/xml_s3/xml_server3.cgi?prod_id=#{encoded_id};vendor=#{encoded_supplier};lang=en;output=productxml")
-  end
-
-  PRODUCT_FILENAME_PREFIX = 'product_'
-  PRODUCT_FILENAME_SUFFIX = '.xml.gz'
-  def product_file_name(product_id)
-    return nil if product_id == nil
-    @config.cache_dir + PRODUCTS_DIRECTORY + PRODUCT_FILENAME_PREFIX + URI.encode_www_form_component(product_id) + PRODUCT_FILENAME_SUFFIX
-  end
-
-  # This is the inverse of the above function. From a filename it gets the
-  # the product ID. This is used for iterating across all the files in a
-  # directory.
-  def product_id_from_filename(filename)
-    match = /#{PRODUCT_FILENAME_PREFIX}(?<encoded_id>\w+)#{PRODUCT_FILENAME_SUFFIX}/.match filename
-    return nil unless match
-    URI.decode_www_form_component(match[:encoded_id])
-  end
-
-  def product_file?(product_id)
-    return File.exists?(product_file_name(product_id))
   end
 
   def build_product_cache(file, valid_category_ids = nil, max_products = nil)
@@ -424,19 +369,23 @@ namespace :hotcat do
     total_downloaded_failed = 0
     index_document.products.each do |p|
       prod_id = p[:id]
-      if product_file?(prod_id)
+      if @cache.local_file_for_product_id?(prod_id)
         already_downloaded += 1
         puts "  #{total_downloaded}: Local file exists for #{prod_id}"
       else
         puts "  #{total_downloaded}: Downloading data file for product #{prod_id}"
         product_details_uri = URI("http://#{Hotcat::Icecat.data_url}/#{p[:path]}")
-        if download_to_local(product_details_uri, product_file_name(prod_id), true, true, "    ")
+        prod_file = @cache.new_local_file_for_product_id(prod_id)
+        if download_to_local(product_details_uri, prod_file, true, true, "    ")
           total_downloaded += 1
         else
           total_downloaded_failed += 1
         end
       end
     end
+
+    puts "Organizing local cache."
+    @cache.organize_product_files
 
     puts "Product cache building results:"
     puts "  Downloaded #{total_downloaded} products."
@@ -449,7 +398,7 @@ namespace :hotcat do
   task :build_product_camera_cache => ["hotcat:setup"] do
     start_time = Time.now
 
-    file = "#{@config.cache_dir}#{INDEX_DIR}#{Hotcat::IndexDocument.full_index_local_filename}"
+    file = File.join(@cache.product_index_files_directory, Hotcat::IndexDocument.full_index_local_filename)
     unless File.exists?(file)
       puts "Full Index XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.indexes_url}#{Hotcat::IndexDocument.full_index_remote_filename}")
@@ -463,9 +412,16 @@ namespace :hotcat do
 
     build_product_cache(file, valid_category_ids, @config.max_products)
 
-    puts "********************************************************************************************************"
+    puts "*********************************************************************"
     puts "DONE."
     puts "Total job time in seconds: #{Time.now - start_time}"
+  end
+
+
+  desc "Organizes the local cache for better performance."
+  task :organize_cache => ["hotcat:setup"] do
+    puts "Organizing local cache."
+    @cache.organize_product_files
   end
 
 
@@ -525,8 +481,7 @@ namespace :hotcat do
   end
 
   def convert_products_to_salsify(mode, dryrun = false, load_info = nil)
-    products_directory = @config.cache_dir + PRODUCTS_DIRECTORY
-    puts "Processing at most #{@config.max_products} trigger products found in files in directory #{products_directory}."
+    puts "Processing at most #{@config.max_products} trigger products."
 
     skip_digital_assets = dryrun || !@load_images
 
@@ -544,7 +499,6 @@ namespace :hotcat do
     products_writer_settings = {
       skip_output: dryrun,
       skip_digital_assets: skip_digital_assets,
-      source_directory: products_directory,
       output_file: products_file,
       categories: @categories,
       category_whitelist: whitelist_trigger_categories,
@@ -579,19 +533,24 @@ namespace :hotcat do
     if load_info[:target_files].present?
       files = load_info[:target_files]
     else
+      # TODO this should all be happening in the cache manager transparently
+
       "Ensuring that related product documents are downloaded."
       files = []
       converter.related_product_ids_suppliers.each_pair do |id, supplier|
-        filename = product_file_name(id)
-        unless File.exists?(filename)
-          filename = product_file_name(id)
+        next if @cache.invalid_product_file_for_product_id(id)
+
+        file = @cache.valid_product_file_for_product_id(id)
+        if file.nil?
+          # download to local
+          file = @cache.new_local_file_for_product_id(id)
           uri = product_icecat_query_uri(id, supplier)
-          if !download_to_local(uri, filename, true, true, indent = '  ')
+          if !download_to_local(uri, file, true, true, indent = '  ')
             load_info[:good_product_ids].delete(id)
             next
           end
         end
-        files.push(filename)
+        files.push(file)
       end
     end
 
@@ -607,7 +566,6 @@ namespace :hotcat do
     accessory_writer_settings = {
       skip_output: dryrun,
       skip_digital_assets: skip_digital_assets,
-      source_directory: products_directory,
       files_whitelist: files,
       output_file: related_products_filename,
       categories: @categories,
@@ -642,6 +600,7 @@ namespace :hotcat do
 
     puts "Writing out all attributes seen into list file."
     write_attributes_list_file unless dryrun
+
 
     load_info
   end

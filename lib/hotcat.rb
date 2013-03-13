@@ -21,6 +21,7 @@ end
 require "hotcat/error"
 require "hotcat/config"
 require "hotcat/version"
+require "hotcat/cache_manager"
 
 require "hotcat/icecat"
 require "hotcat/salsify_csv_writer"
