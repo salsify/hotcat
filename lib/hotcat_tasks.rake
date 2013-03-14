@@ -2,6 +2,8 @@ require 'set'
 require 'uri'
 require 'net/http'
 
+require 'find'
+
 require 'nokogiri'
 require 'active_support/ordered_options'
 
@@ -34,7 +36,7 @@ require "hotcat/aws_uploader"
 
 namespace :hotcat do
 
-  # FIXME is this really required?
+  # TODO is this really required?
   SALSIFY_PREFIX = "salsify-"
 
   # ICEcat category ID for digital cameras
@@ -250,7 +252,7 @@ namespace :hotcat do
 
 
   def load_categories_hash()
-    file = File.join(@config.reference_files_directory, Hotcat::CategoryDocument.filename)
+    file = File.join(@cache.reference_files_directory, Hotcat::CategoryDocument.filename)
     unless File.exists?(file)
       puts "Categories XML is not locally cached. Fetching."
       uri = URI("#{Hotcat::Icecat.refs_url}#{Hotcat::CategoryDocument.filename}")
@@ -533,25 +535,59 @@ namespace :hotcat do
     if load_info[:target_files].present?
       files = load_info[:target_files]
     else
-      # TODO this should all be happening in the cache manager transparently
+      puts "Ensuring that related product documents are downloaded."
+      # TODO this should all be happening in the cache manager transparently.
 
-      "Ensuring that related product documents are downloaded."
+      # Building list of all files...
+      all_files = []
+      all_files_basenames = []
+      Find.find(@cache.product_files_directory) do |file|
+        all_files.push(file)
+        all_files_basenames.push(File.basename(file))
+      end
+
+      all_failed_files = []
+      Find.find(@cache.product_failed_files_directory) do |file|
+        all_failed_files.push(File.basename(file))
+      end
+
       files = []
       converter.related_product_ids_suppliers.each_pair do |id, supplier|
-        next if @cache.invalid_product_file_for_product_id(id)
-
-        file = @cache.valid_product_file_for_product_id(id)
-        if file.nil?
-          # download to local
+        filename = @cache.product_file_basename_for_product_id(id)
+        next if all_failed_files.include?(filename)
+        index = all_files_basenames.index(filename)
+        if index
+          files.push(all_files[index])
+        else
+          download to local
           file = @cache.new_local_file_for_product_id(id)
           uri = product_icecat_query_uri(id, supplier)
           if !download_to_local(uri, file, true, true, indent = '  ')
             load_info[:good_product_ids].delete(id)
             next
           end
+          files.push(file)
         end
-        files.push(file)
       end
+
+      # TODO also parse the category for accessories so that they are easier to
+      #      look up. that data is available.
+      #      this is painfully slow right now
+      # files = []
+      # converter.related_product_ids_suppliers.each_pair do |id, supplier|
+      #   next if @cache.invalid_product_file_for_product_id(id).present?
+      #   file = @cache.valid_product_file_for_product_id(id)
+      #   if file.nil?
+      #     # download to local
+      #     file = @cache.new_local_file_for_product_id(id)
+      #     uri = product_icecat_query_uri(id, supplier)
+      #     if !download_to_local(uri, file, true, true, indent = '  ')
+      #       load_info[:good_product_ids].delete(id)
+      #       next
+      #     end
+      #   end
+      #   files.push(file)
+      # end
     end
 
 

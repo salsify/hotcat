@@ -114,7 +114,7 @@ class Hotcat::SalsifyProductsLoader
 
     files_to_process = []
     Find.find(*directories) do |file|
-      next if File.directory?(filename)
+      next if File.directory?(file)
       next unless @files.blank? || @files.include?(file)
       next if @product_files_blacklist.present? && @product_files_blacklist.include?(file)
       files_to_process.push(file)
@@ -138,7 +138,7 @@ class Hotcat::SalsifyProductsLoader
         # don't let a single error derail the entire conversion, which could be
         # several hours.
         puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        puts "ERROR: Exception encountered when loading from #{filename}"
+        puts "ERROR: Exception encountered when loading from #{file}"
         puts e.inspect
         print e.backtrace.join("\n")
         puts 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
